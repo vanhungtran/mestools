@@ -1,0 +1,42 @@
+Package: mestools
+Title: A Collection of Useful Tools for Data Analysis and Package
+    Development
+Version: 0.1.0
+Authors@R: 
+    person("Lucas VHH", "TRAN", , "tranhungydhcm@gmail.com", role = c("aut", "cre"))
+Description: Provides utility functions for data manipulation, package
+    development, deployment automation, and common analytical tasks.
+    Includes GitHub deployment automation and quality of life tools for R
+    developers.
+License: MIT + file LICENSE
+URL: https://github.com/vanhungtran/mestools
+BugReports: https://github.com/vanhungtran/mestools/issues
+Depends: 
+    R (>= 4.0.0)
+Imports: 
+    desc,
+    devtools,
+    gert,
+    here,
+    knitr,
+    pkgdown,
+    rmarkdown,
+    stats,
+    testthat,
+    tools,
+    usethis,
+    utils
+Suggests: 
+    covr,
+    curl,
+    gh,
+    knitr,
+    pkgload,
+    rmarkdown,
+    spelling
+VignetteBuilder: 
+    knitr
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Config/testthat/edition: 3
