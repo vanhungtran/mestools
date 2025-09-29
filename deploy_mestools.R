@@ -107,32 +107,54 @@ deploy_mestools <- function(commit_message = NULL,
     message("4. 🐙 GitHub remote already configured: ", remote_list$url[1])
   }
 
-  # Step 5: Sync with remote before committing
-  if (has_remote && git_initialized) {
-    message("5. 🔄 Syncing with remote repository...")
+  # Step 5: Check and setup upstream branch
+  message("5. 🔄 Checking upstream branch configuration...")
+  current_branch <- gert::git_branch()
+
+  # Check if upstream is configured
+  upstream_configured <- tryCatch({
+    gert::git_branch_remote()
+    TRUE
+  }, error = function(e) FALSE)
+
+  if (!upstream_configured && has_remote) {
+    message("   ⚙️  Setting upstream branch for '", current_branch, "'...")
+    tryCatch({
+      # Try to set upstream
+      gert::git_push(remote = "origin", set_upstream = TRUE)
+      message("   ✅ Upstream branch configured")
+    }, error = function(e) {
+      message("   ⚠️  Could not set upstream automatically: ", e$message)
+    })
+  } else if (upstream_configured) {
+    message("   ✅ Upstream branch already configured")
+  }
+
+  # Step 6: Sync with remote (only if upstream is configured)
+  if (has_remote && git_initialized && upstream_configured) {
+    message("6. 🔄 Syncing with remote repository...")
     tryCatch({
       # Fetch latest changes from remote
       gert::git_fetch()
 
       # Check if we're behind the remote
-      remote_branch <- gert::git_branch_remote()
-      if (!is.na(remote_branch)) {
-        behind <- gert::git_ahead_behind()$behind
-        if (behind > 0) {
-          message("   📥 Pulling ", behind, " commit(s) from remote...")
-          gert::git_pull()
-        } else {
-          message("   ✅ Local repository is up to date with remote")
-        }
+      ahead_behind <- gert::git_ahead_behind()
+      if (ahead_behind$behind > 0) {
+        message("   📥 Pulling ", ahead_behind$behind, " commit(s) from remote...")
+        gert::git_pull()
+        message("   ✅ Successfully pulled remote changes")
+      } else {
+        message("   ✅ Local repository is up to date with remote")
       }
     }, error = function(e) {
       message("   ⚠️  Sync failed: ", e$message)
-      message("   This might be expected for a new repository")
     })
+  } else {
+    message("6. ⚠️  Skipping sync (no upstream configured)")
   }
 
-  # Step 6: Commit changes
-  message("6. 💾 Committing changes...")
+  # Step 7: Commit changes
+  message("7. 💾 Committing changes...")
 
   # Check git status
   status <- gert::git_status()
@@ -161,14 +183,19 @@ deploy_mestools <- function(commit_message = NULL,
   gert::git_commit(commit_message)
   message("   ✅ Committed: ", commit_message)
 
-  # Step 7: Push to GitHub
-  message("7. 🚀 Pushing to GitHub...")
+  # Step 8: Push to GitHub
+  message("8. 🚀 Pushing to GitHub...")
   tryCatch({
-    # First check if we're ahead of remote
-    ahead_behind <- gert::git_ahead_behind()
-    if (ahead_behind$ahead > 0) {
-      message("   Pushing ", ahead_behind$ahead, " commit(s) to remote...")
-      gert::git_push(remote = "origin")
+    # Check if we have commits to push
+    ahead_behind <- tryCatch({
+      gert::git_ahead_behind()
+    }, error = function(e) {
+      list(ahead = 1, behind = 0) # Assume we're ahead if we can't check
+    })
+
+    if (ahead_behind$ahead > 0 || !upstream_configured) {
+      message("   Pushing to remote...")
+      gert::git_push(remote = "origin", set_upstream = !upstream_configured)
       message("   ✅ Successfully pushed to GitHub!")
     } else {
       message("   📭 No new commits to push")
@@ -176,8 +203,10 @@ deploy_mestools <- function(commit_message = NULL,
   }, error = function(e) {
     if (grepl("contains commits that are not present locally", e$message)) {
       message("   ❌ Push failed: Remote has commits not present locally")
-      message("   🔄 Try pulling first with: gert::git_pull()")
-      message("   💡 Or use force push (use with caution): gert::git_push(force = TRUE)")
+      message("   💡 Run: gert::git_pull() to merge remote changes first")
+    } else if (grepl("No upstream", e$message)) {
+      message("   ❌ Push failed: No upstream branch configured")
+      message("   💡 Run: gert::git_push(remote = 'origin', set_upstream = TRUE)")
     } else {
       message("   ❌ Push failed: ", e$message)
     }
@@ -188,7 +217,7 @@ deploy_mestools <- function(commit_message = NULL,
   message("📊 Repository: https://github.com/vanhungtran/mestools")
 
   # Final package build and install
-  message("8. 📦 Final package build and install...")
+  message("9. 📦 Final package build and install...")
   devtools::build()
   devtools::install()
 
@@ -197,43 +226,9 @@ deploy_mestools <- function(commit_message = NULL,
   return(invisible(TRUE))
 }
 
-#' Force Push Version (Use with Caution)
+#' Safe Deployment with Upstream Handling
 #'
-#' Force push to overwrite remote history - USE ONLY WHEN YOU'RE SURE
-#'
-#' @param commit_message Custom commit message
-#' @return Invisible TRUE if successful
-#' @export
-deploy_mestools_force <- function(commit_message = NULL) {
-  pkg_dir <- file.path(dirname(here::here()), "mestools")
-  setwd(pkg_dir)
-
-  # Update documentation
-  devtools::document()
-
-  # Commit changes
-  status <- gert::git_status()
-  if (nrow(status) > 0) {
-    gert::git_add(".")
-
-    if (is.null(commit_message)) {
-      commit_message <- paste("Force update:", Sys.time())
-    }
-
-    gert::git_commit(commit_message)
-
-    # Force push (DANGEROUS - overwrites remote history)
-    message("⚠️  FORCE PUSHING - THIS WILL OVERWRITE REMOTE HISTORY!")
-    gert::git_push(remote = "origin", force = TRUE)
-    message("✅ Force push completed")
-  } else {
-    message("No changes to commit")
-  }
-}
-
-#' Pull and Merge First
-#'
-#' Pull remote changes and merge before pushing
+#' Pull remote changes and set upstream before pushing
 #'
 #' @param commit_message Custom commit message
 #' @return Invisible TRUE if successful
@@ -242,23 +237,80 @@ deploy_mestools_safe <- function(commit_message = NULL) {
   pkg_dir <- file.path(dirname(here::here()), "mestools")
   setwd(pkg_dir)
 
-  message("🔄 Safe deployment - pulling remote changes first...")
+  message("🔄 Safe deployment - ensuring upstream configuration...")
 
-  # Step 1: Pull and merge
+  # Step 1: Ensure upstream is configured
+  current_branch <- gert::git_branch()
+
+  # Check if upstream exists
+  upstream_exists <- tryCatch({
+    gert::git_branch_remote()
+    TRUE
+  }, error = function(e) FALSE)
+
+  if (!upstream_exists) {
+    message("1. ⚙️  Setting upstream branch...")
+    tryCatch({
+      gert::git_push(remote = "origin", set_upstream = TRUE)
+      message("   ✅ Upstream configured")
+    }, error = function(e) {
+      message("   ❌ Failed to set upstream: ", e$message)
+      message("   💡 Trying manual upstream setup...")
+
+      # Manual upstream setup
+      system(paste("git branch --set-upstream-to=origin/", current_branch, " ", current_branch, sep = ""))
+    })
+  }
+
+  # Step 2: Pull changes
+  message("2. 📥 Pulling remote changes...")
   tryCatch({
     gert::git_pull()
-    message("✅ Successfully pulled and merged remote changes")
+    message("   ✅ Successfully pulled remote changes")
   }, error = function(e) {
-    message("❌ Pull failed: ", e$message)
-    message("💡 You may need to resolve merge conflicts manually")
-    return(invisible(FALSE))
+    message("   ⚠️  Pull failed: ", e$message)
   })
 
-  # Step 2: Continue with normal deployment
-  deploy_mestools(commit_message = commit_message, run_checks = FALSE, skip_document = FALSE)
+  # Step 3: Continue with normal deployment
+  deploy_mestools(
+    commit_message = commit_message,
+    run_checks = FALSE,
+    skip_document = FALSE
+  )
 }
 
-# Other functions remain the same...
+#' Manual Upstream Setup
+#'
+#' Manually set upstream branch for the current branch
+#'
+#' @return Invisible TRUE if successful
+#' @export
+setup_upstream <- function() {
+  pkg_dir <- file.path(dirname(here::here()), "mestools")
+  setwd(pkg_dir)
+
+  current_branch <- gert::git_branch()
+  message("Setting upstream for branch: ", current_branch)
+
+  tryCatch({
+    # Method 1: Using gert
+    gert::git_push(remote = "origin", set_upstream = TRUE)
+    message("✅ Upstream configured successfully")
+  }, error = function(e) {
+    message("❌ Method 1 failed: ", e$message)
+
+    # Method 2: Using system command
+    message("Trying system command...")
+    cmd <- paste("git push --set-upstream origin", current_branch)
+    system(cmd)
+    message("✅ Upstream configuration attempted with system command")
+  })
+
+  return(invisible(TRUE))
+}
+
+# Other functions remain similar but with improved upstream handling...
+
 #' Quick Update Function
 #'
 #' Fast deployment for quick updates without running checks
@@ -274,23 +326,7 @@ deploy_mestools_quick <- function(commit_message = NULL) {
   )
 }
 
-#' Force Reinitialization
-#'
-#' Completely reinitialize the Git repository and redeploy
-#'
-#' @param commit_message Custom commit message
-#' @return Invisible TRUE if successful
-#' @export
-deploy_mestools_clean <- function(commit_message = NULL) {
-  deploy_mestools(
-    commit_message = commit_message,
-    force_initial = TRUE,
-    run_checks = TRUE,
-    skip_document = FALSE
-  )
-}
-
-#' Check Package Status
+#' Check Package Status with Upstream Info
 #'
 #' Check the current status of the mestools package and Git repository
 #'
@@ -304,17 +340,28 @@ check_mestools_status <- function() {
     package_dir = pkg_dir,
     dir_exists = dir.exists(pkg_dir),
     git_initialized = dir.exists(".git"),
-    has_remote = nrow(gert::git_remote_list()) > 0,
-    uncommitted_changes = nrow(gert::git_status()) > 0
+    has_remote = nrow(gert::git_remote_list()) > 0
   )
 
   if (status$git_initialized) {
     status$branch <- gert::git_branch()
-    status$ahead_behind <- tryCatch({
-      gert::git_ahead_behind()
-    }, error = function(e) {
-      list(ahead = 0, behind = 0)
-    })
+
+    # Check upstream
+    status$upstream_configured <- tryCatch({
+      gert::git_branch_remote()
+      TRUE
+    }, error = function(e) FALSE)
+
+    status$uncommitted_changes = nrow(gert::git_status()) > 0
+
+    if (status$upstream_configured) {
+      status$ahead_behind <- tryCatch({
+        gert::git_ahead_behind()
+      }, error = function(e) {
+        list(ahead = 0, behind = 0)
+      })
+    }
+
     status$last_commit <- tryCatch({
       log <- gert::git_log(max = 1)
       if (nrow(log) > 0) log else NULL
@@ -327,12 +374,16 @@ check_mestools_status <- function() {
   message("  📁 Directory exists: ", status$dir_exists)
   message("  🔧 Git initialized: ", status$git_initialized)
   message("  🐙 Remote configured: ", status$has_remote)
-  message("  📝 Uncommitted changes: ", status$uncommitted_changes)
 
   if (status$git_initialized) {
     message("  🌿 Current branch: ", status$branch)
-    message("  📊 Ahead/Behind: ", status$ahead_behind$ahead, " ahead, ",
-            status$ahead_behind$behind, " behind")
+    message("  🔗 Upstream configured: ", status$upstream_configured)
+    message("  📝 Uncommitted changes: ", status$uncommitted_changes)
+
+    if (status$upstream_configured && !is.null(status$ahead_behind)) {
+      message("  📊 Ahead/Behind: ", status$ahead_behind$ahead, " ahead, ",
+              status$ahead_behind$behind, " behind")
+    }
 
     if (!is.null(status$last_commit)) {
       message("  ⏰ Last commit: ", status$last_commit$time)
@@ -348,14 +399,15 @@ if (sys.nframe() == 0) {
   message("🤖 mestools Deployment Script")
   message("==============================")
   message("Available functions:")
-  message("• deploy_mestools() - Full deployment (recommended)")
-  message("• deploy_mestools_safe() - Pull first, then deploy")
-  message("• deploy_mestools_force() - Force push (DANGEROUS)")
+  message("• deploy_mestools() - Full deployment")
+  message("• deploy_mestools_safe() - Safe deployment with upstream setup")
+  message("• setup_upstream() - Manual upstream configuration")
   message("• deploy_mestools_quick() - Quick update")
-  message("• deploy_mestools_clean() - Clean reinitialization")
   message("• check_mestools_status() - Check current status")
   message("")
-  message("Usage for your current error:")
+  message("To fix your current error, run:")
+  message("setup_upstream()")
+  message("Then:")
   message('deploy_mestools_safe("Your commit message")')
   message("")
 
