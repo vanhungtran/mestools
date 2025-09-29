@@ -107,6 +107,7 @@ deploy_mestools <- function(commit_message = NULL,
     message("4. 🐙 GitHub remote already configured: ", remote_list$url[1])
   }
 
+<<<<<<< HEAD
   # Step 5: Check and setup upstream branch
   message("5. 🔄 Checking upstream branch configuration...")
   current_branch <- gert::git_branch()
@@ -155,6 +156,10 @@ deploy_mestools <- function(commit_message = NULL,
 
   # Step 7: Commit changes
   message("7. 💾 Committing changes...")
+=======
+  # Step 5: Commit changes
+  message("5. 💾 Committing changes...")
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 
   # Check git status
   status <- gert::git_status()
@@ -183,6 +188,7 @@ deploy_mestools <- function(commit_message = NULL,
   gert::git_commit(commit_message)
   message("   ✅ Committed: ", commit_message)
 
+<<<<<<< HEAD
   # Step 8: Push to GitHub
   message("8. 🚀 Pushing to GitHub...")
   tryCatch({
@@ -218,6 +224,17 @@ deploy_mestools <- function(commit_message = NULL,
 
   # Final package build and install
   message("9. 📦 Final package build and install...")
+=======
+  # Step 6: Push to GitHub
+  message("6. 🚀 Pushing to GitHub...")
+  gert::git_push(remote = "origin", set_upstream = TRUE)
+
+  message("🎉 mestools package successfully deployed to GitHub!")
+  message("📊 Repository: https://github.com/vanhungtran/mestools")
+
+  # Final package build and install
+  message("7. 📦 Final package build and install...")
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
   devtools::build()
   devtools::install()
 
@@ -226,13 +243,20 @@ deploy_mestools <- function(commit_message = NULL,
   return(invisible(TRUE))
 }
 
+<<<<<<< HEAD
 #' Safe Deployment with Upstream Handling
 #'
 #' Pull remote changes and set upstream before pushing
+=======
+#' Quick Update Function
+#'
+#' Fast deployment for quick updates without running checks
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 #'
 #' @param commit_message Custom commit message
 #' @return Invisible TRUE if successful
 #' @export
+<<<<<<< HEAD
 deploy_mestools_safe <- function(commit_message = NULL) {
   pkg_dir <- file.path(dirname(here::here()), "mestools")
   setwd(pkg_dir)
@@ -272,6 +296,9 @@ deploy_mestools_safe <- function(commit_message = NULL) {
   })
 
   # Step 3: Continue with normal deployment
+=======
+deploy_mestools_quick <- function(commit_message = NULL) {
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
   deploy_mestools(
     commit_message = commit_message,
     run_checks = FALSE,
@@ -279,6 +306,7 @@ deploy_mestools_safe <- function(commit_message = NULL) {
   )
 }
 
+<<<<<<< HEAD
 #' Manual Upstream Setup
 #'
 #' Manually set upstream branch for the current branch
@@ -314,19 +342,38 @@ setup_upstream <- function() {
 #' Quick Update Function
 #'
 #' Fast deployment for quick updates without running checks
+=======
+#' Force Reinitialization
+#'
+#' Completely reinitialize the Git repository and redeploy
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 #'
 #' @param commit_message Custom commit message
 #' @return Invisible TRUE if successful
 #' @export
+<<<<<<< HEAD
 deploy_mestools_quick <- function(commit_message = NULL) {
   deploy_mestools(
     commit_message = commit_message,
     run_checks = FALSE,
+=======
+deploy_mestools_clean <- function(commit_message = NULL) {
+  deploy_mestools(
+    commit_message = commit_message,
+    force_initial = TRUE,
+    run_checks = TRUE,
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
     skip_document = FALSE
   )
 }
 
+<<<<<<< HEAD
 #' Check Package Status with Upstream Info
+=======
+# Additional utility functions for package management
+
+#' Check Package Status
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 #'
 #' Check the current status of the mestools package and Git repository
 #'
@@ -340,6 +387,7 @@ check_mestools_status <- function() {
     package_dir = pkg_dir,
     dir_exists = dir.exists(pkg_dir),
     git_initialized = dir.exists(".git"),
+<<<<<<< HEAD
     has_remote = nrow(gert::git_remote_list()) > 0
   )
 
@@ -367,6 +415,15 @@ check_mestools_status <- function() {
       if (nrow(log) > 0) log else NULL
     }, error = function(e) NULL)
   }
+=======
+    has_remote = nrow(gert::git_remote_list()) > 0,
+    uncommitted_changes = nrow(gert::git_status()) > 0,
+    last_commit = if (dir.exists(".git")) {
+      log <- gert::git_log(max = 1)
+      if (nrow(log) > 0) log else NULL
+    } else NULL
+  )
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 
   # Print status summary
   message("📊 mestools Package Status:")
@@ -374,6 +431,7 @@ check_mestools_status <- function() {
   message("  📁 Directory exists: ", status$dir_exists)
   message("  🔧 Git initialized: ", status$git_initialized)
   message("  🐙 Remote configured: ", status$has_remote)
+<<<<<<< HEAD
 
   if (status$git_initialized) {
     message("  🌿 Current branch: ", status$branch)
@@ -389,17 +447,52 @@ check_mestools_status <- function() {
       message("  ⏰ Last commit: ", status$last_commit$time)
       message("  💬 Last message: ", status$last_commit$message)
     }
+=======
+  message("  📝 Uncommitted changes: ", status$uncommitted_changes)
+
+  if (!is.null(status$last_commit)) {
+    message("  ⏰ Last commit: ", status$last_commit$time)
+    message("  💬 Last message: ", status$last_commit$message)
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
   }
 
   invisible(status)
 }
 
+<<<<<<< HEAD
 # Main execution block
 if (sys.nframe() == 0) {
+=======
+#' Build and Install Only
+#'
+#' Just build and install the package without Git operations
+#'
+#' @return Invisible TRUE if successful
+#' @export
+build_install_mestools <- function() {
+  pkg_dir <- file.path(dirname(here::here()), "mestools")
+  setwd(pkg_dir)
+
+  message("📦 Building mestools package...")
+  devtools::document()
+  devtools::build()
+  devtools::install()
+  message("✅ Package built and installed successfully!")
+
+  invisible(TRUE)
+}
+
+# Main execution block (run when script is sourced)
+if (sys.nframe() == 0) {
+  # This block runs only when the script is executed directly,
+  # not when it's sourced as part of a package
+
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
   message("🤖 mestools Deployment Script")
   message("==============================")
   message("Available functions:")
   message("• deploy_mestools() - Full deployment")
+<<<<<<< HEAD
   message("• deploy_mestools_safe() - Safe deployment with upstream setup")
   message("• setup_upstream() - Manual upstream configuration")
   message("• deploy_mestools_quick() - Quick update")
@@ -409,8 +502,25 @@ if (sys.nframe() == 0) {
   message("setup_upstream()")
   message("Then:")
   message('deploy_mestools_safe("Your commit message")')
+=======
+  message("• deploy_mestools_quick() - Quick update")
+  message("• deploy_mestools_clean() - Clean reinitialization")
+  message("• check_mestools_status() - Check current status")
+  message("• build_install_mestools() - Build and install only")
+  message("")
+  message("Usage examples:")
+  message('deploy_mestools("Custom commit message")')
+  message('deploy_mestools_quick("Quick fix")')
+  message("check_mestools_status()")
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
   message("")
 
   # Check status by default
   check_mestools_status()
 }
+<<<<<<< HEAD
+=======
+
+
+
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97

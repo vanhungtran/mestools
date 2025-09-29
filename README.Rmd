@@ -22,11 +22,18 @@ The goal of mestools is to ...
 
 ## Installation
 
+<<<<<<< HEAD
 You can install the development version of mestools from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("pak")
 pak::pak("vanhungtran/mestools")
+=======
+You can install the development version of mestools like so:
+
+``` r
+# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+>>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 ```
 
 ## Example
