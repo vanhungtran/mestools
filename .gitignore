@@ -7,6 +7,7 @@
 creat_pkg_name.R
 <<<<<<< HEAD
 deploy_package.R
+deploy_mestools.R
 Rfunctions_and_test.R
 *.Rproj
 *.tar.gz
@@ -14,3 +15,6 @@ Rfunctions_and_test.R
 =======
 >>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 deploy_mestools.R
+
+
+
