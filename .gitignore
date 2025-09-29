@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.httr-oauth
+.DS_Store
+.quarto
+creat_pkg_name.R
+deploy_package.R
+Rfunctions_and_test.R
+*.Rproj
+*.tar.gz
+*.pdf
