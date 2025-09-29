@@ -6,7 +6,7 @@
 \usage{
 create_project_structure(
   path = ".",
-  directories = c("data", "scripts", "output", "docs", "reports")
+  directories = c("inputs", "scripts", "output", "docs", "ref", "reports")
 )
 }
 \arguments{

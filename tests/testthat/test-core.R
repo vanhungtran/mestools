@@ -3,7 +3,7 @@ test_that("validate_github_repo works with valid repo", {
   skip_if_offline()
 
   # Test with a known existing repository
-  result <- validate_github_repo("https://github.com/r-lib/usethis.git")
+  result <- validate_github_repo("https://github.com/vanhungtran/aucmat.git")
   expect_true(result)
 })
 
