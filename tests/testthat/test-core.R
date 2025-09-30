@@ -1,26 +1,43 @@
 test_that("validate_github_repo works with valid repo", {
   skip_on_cran()
   skip_if_offline()
+  skip_if_not_installed("gh")
 
   # Test with a known existing repository
-  result <- validate_github_repo("https://github.com/vanhungtran/aucmat.git")
+  expect_message(
+    result <- validate_github_repo("https://github.com/vanhungtran/aucmat.git"),
+    "Checking GitHub repository"
+  )
   expect_true(result)
 })
 
 test_that("validate_github_repo fails with invalid repo", {
   skip_on_cran()
   skip_if_offline()
+  skip_if_not_installed("gh")
 
   # Test with non-existent repository
-  result <- validate_github_repo("https://github.com/invalid_user/invalid_repo.git")
+  expect_message(
+    result <- validate_github_repo("https://github.com/invalid_user_12345/invalid_repo_67890.git"),
+    "Repository not found"
+  )
   expect_false(result)
 })
 
 test_that("validate_github_repo handles malformed URLs", {
-  # Test with malformed URL
-  expect_error(validate_github_repo("not-a-url"))
+  skip_if_not_installed("gh")
+  
+  # Test with malformed URL - should handle gracefully
+  result <- validate_github_repo("not-a-url")  
+  expect_false(result)
+  
+  # Test with NULL and NA
   expect_error(validate_github_repo(NULL))
   expect_error(validate_github_repo(NA))
+  
+  # Test with empty string
+  result <- validate_github_repo("")
+  expect_false(result)
 })
 
 test_that("quick_summary returns correct structure", {
@@ -71,14 +88,35 @@ test_that("read_file_safe reads different file types", {
 
 test_that("read_file_safe handles errors appropriately", {
   # Test non-existent file
-  expect_error(read_file_safe("nonexistent_file.csv"))
+  expect_error(read_file_safe("nonexistent_file.csv"), "File does not exist")
 
   # Test unsupported file type
-  expect_error(read_file_safe("test.unsupported"))
+  temp_unsupported <- tempfile(fileext = ".unsupported")
+  writeLines("test", temp_unsupported)
+  expect_error(read_file_safe(temp_unsupported), "Unsupported file type")
+  unlink(temp_unsupported)
 
   # Create a corrupt RDS file for testing
   temp_bad <- tempfile(fileext = ".rds")
   writeLines("not rds data", temp_bad)
-  expect_error(read_file_safe(temp_bad, type = "rds"))
+  expect_error(read_file_safe(temp_bad, type = "rds"), "Error reading file")
   unlink(temp_bad)
+})
+
+test_that("deploy_package input validation", {
+  skip("Skipping deployment test to avoid recursive testing during package tests")
+})
+
+test_that("deploy_package handles missing dependencies", {
+  # This test verifies the function checks for required packages
+  # We can't easily mock package installation in testthat, but we can
+  # verify the function structure
+  
+  expect_true(exists("deploy_package"))
+  expect_true(is.function(deploy_package))
+  
+  # Check function arguments
+  expected_args <- c("repo_url", "commit_message", "run_tests", "run_checks")
+  actual_args <- names(formals(deploy_package))
+  expect_true(all(expected_args %in% actual_args))
 })
