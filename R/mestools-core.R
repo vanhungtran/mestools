@@ -637,35 +637,35 @@ download_rnaseq_data_improved <- function(gse_list, data_dir) {
 # 3. EXAMPLE USAGE
 # ==============================================================================
 
-# Define a list of RNA-seq datasets
-rnaseq_datasets <- c("GSE121212", "GSE137430", "GSE65832", "GSE157194",
-                     "GSE186063", "GSE141570", "GSE176279", "GSE223799")
+# Define a list of RNA-seq datasets (commented out to prevent execution during package load)
+# rnaseq_datasets <- c("GSE121212", "GSE137430", "GSE65832", "GSE157194",
+#                      "GSE186063", "GSE141570", "GSE176279", "GSE223799")
 
-# Define data directory and ensure it exists
-data_dir <- paste0(here::here(), "/data_geo")
-dir.create(data_dir, showWarnings = FALSE, recursive = TRUE)
-message("Data will be downloaded to: ", data_dir)
+# Define data directory and ensure it exists (commented out to prevent execution during package load)
+# data_dir <- paste0(here::here(), "/data_geo")
+# dir.create(data_dir, showWarnings = FALSE, recursive = TRUE)
+# message("Data will be downloaded to: ", data_dir)
 
 
-# Subset for a quick test (GSE121212 is known to work with the direct NCBI link)
-# NOTE: This execution might take a few minutes as it downloads large files.
-test_datasets <- c("GSE121212", "GSE157194")
-message("\n--- Starting download for test datasets: ", paste(test_datasets, collapse = ", "), " ---")
-
-# Run the improved function
-rnaseq_exps_test <- download_rnaseq_data_improved(test_datasets, data_dir)
-
-# Check the results
-message("\n--- Results Summary ---")
-message("Number of datasets successfully processed: ", length(rnaseq_exps_test))
-if ("GSE121212" %in% names(rnaseq_exps_test)) {
-  message("GSE121212 expression matrix dimensions (Genes x Samples): ", paste(dim(rnaseq_exps_test$GSE121212), collapse = " x "))
-}
-if ("GSE157194" %in% names(rnaseq_exps_test)) {
-  message("GSE157194 expression matrix dimensions (Genes x Samples): ", paste(dim(rnaseq_exps_test$GSE157194), collapse = " x "))
-}
-# Clean up the test directory (optional)
-# unlink(data_dir, recursive = TRUE)
+# Subset for a quick test (commented out to prevent execution during package load)
+# # NOTE: This execution might take a few minutes as it downloads large files.
+# test_datasets <- c("GSE121212", "GSE157194")
+# message("\n--- Starting download for test datasets: ", paste(test_datasets, collapse = ", "), " ---")
+# 
+# # Run the improved function
+# rnaseq_exps_test <- download_rnaseq_data_improved(test_datasets, data_dir)
+# 
+# # Check the results
+# message("\n--- Results Summary ---")
+# message("Number of datasets successfully processed: ", length(rnaseq_exps_test))
+# if ("GSE121212" %in% names(rnaseq_exps_test)) {
+#   message("GSE121212 expression matrix dimensions (Genes x Samples): ", paste(dim(rnaseq_exps_test$GSE121212), collapse = " x "))
+# }
+# if ("GSE157194" %in% names(rnaseq_exps_test)) {
+#   message("GSE157194 expression matrix dimensions (Genes x Samples): ", paste(dim(rnaseq_exps_test$GSE157194), collapse = " x "))
+# }
+# # Clean up the test directory (optional)
+# # unlink(data_dir, recursive = TRUE)
 
 
 # --- GEO Dataset Functions ---
