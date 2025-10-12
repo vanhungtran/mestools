@@ -1,6 +1,9 @@
 # Test script for GEO dataset functions
 # Run this script to test the new GEO functionality
 
+# Set CRAN mirror first
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
 # First install required packages if not already installed
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
   install.packages("BiocManager")
