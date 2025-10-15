@@ -223,6 +223,49 @@ read_file_safe <- function(file_path, type = NULL, ...) {
   })
 }
 
+
+
+
+library(httr)
+
+#' Check if a specific NCBI-processed RNA-seq file exists for a GEO Series
+#'
+#' @param gse_id A character string with the GEO Series ID (e.g., "GSE121212").
+#' @return A logical value: `TRUE` if the file exists and is accessible, `FALSE` otherwise.
+
+check_geo_file_exists <- function(gse_id) {
+
+  # Construct the exact URL based on the pattern in your script
+  file_name <- paste0(gse_id, "_raw_counts_GRCh38.p13_NCBI.tsv.gz")
+  url <- paste0("https://www.ncbi.nlm.nih.gov/geo/download/",
+                "?format=file&type=rnaseq_counts",
+                "&acc=", gse_id,
+                "&file=", file_name)
+
+  message(paste("Checking:", gse_id))
+
+  # Use tryCatch to handle potential network errors gracefully
+  result <- tryCatch({
+
+    # Send a HEAD request to get headers without downloading the body
+    response <- httr::HEAD(url)
+
+    # A status code of 200 means the request was successful and the file exists
+    return(httr::status_code(response) == 200)
+
+  }, error = function(e) {
+
+    # If any error occurs (e.g., no internet connection), return FALSE
+    warning(paste("An error occurred for", gse_id, ":", e$message))
+    return(FALSE)
+  })
+
+  return(result)
+}
+
+
+
+
 #' Read GEO Dataset
 #'
 #' Downloads and processes a single GEO dataset using GEOquery.
@@ -244,37 +287,37 @@ read_geo_dataset <- function(gse_id, destdir = tempdir(), getGPL = TRUE, AnnotGP
   if (!requireNamespace("GEOquery", quietly = TRUE)) {
     stop("Please install GEOquery: BiocManager::install('GEOquery')")
   }
-  
+
   message("📥 Downloading GEO dataset: ", gse_id)
-  
+
   tryCatch({
     # Download the GEO dataset
     gse <- GEOquery::getGEO(gse_id, destdir = destdir, getGPL = getGPL, AnnotGPL = AnnotGPL)
-    
+
     # Extract the first (and usually only) dataset
     if (length(gse) > 1) {
       message("⚠️  Multiple platforms found. Using the first one.")
     }
     eset <- gse[[1]]
-    
+
     # Extract expression matrix
     expression_matrix <- GEOquery::exprs(eset)
-    
+
     # Extract phenotype data (sample metadata)
     phenotype_data <- GEOquery::pData(eset)
-    
+
     # Extract feature data (probe/gene annotations)
     feature_data <- GEOquery::fData(eset)
-    
+
     # Basic information
     n_samples <- ncol(expression_matrix)
     n_features <- nrow(expression_matrix)
-    
+
     message("✅ Successfully processed ", gse_id)
     message("   📊 Features: ", n_features)
     message("   🧪 Samples: ", n_samples)
     message("   📋 Platform: ", GEOquery::annotation(eset))
-    
+
     return(list(
       gse_object = eset,
       expression_matrix = expression_matrix,
@@ -285,7 +328,7 @@ read_geo_dataset <- function(gse_id, destdir = tempdir(), getGPL = TRUE, AnnotGP
       n_features = n_features,
       platform = GEOquery::annotation(eset)
     ))
-    
+
   }, error = function(e) {
     message("❌ Error processing ", gse_id, ": ", e$message)
     return(NULL)
@@ -308,64 +351,46 @@ read_geo_dataset <- function(gse_id, destdir = tempdir(), getGPL = TRUE, AnnotGP
 #' # Read multiple GEO datasets
 #' gse_list <- c("GSE102628", "GSE102641", "GSE102725")
 #' results <- read_multiple_geo_datasets(gse_list)
-#' 
+#'
 #' # Access individual datasets
 #' dataset1 <- results$GSE102628$expression_matrix
 #' }
-read_multiple_geo_datasets <- function(gse_ids, destdir = tempdir(), getGPL = TRUE, 
-                                     AnnotGPL = TRUE, sleep_between = 2) {
-  
-  message("🚀 Starting batch download of ", length(gse_ids), " GEO datasets...")
-  
-  # Initialize results list
+read_multiple_geo_datasets <- function(gse_list) {
   results <- list()
-  failed_downloads <- character()
-  
-  # Process datasets
-  for (i in seq_along(gse_ids)) {
-    gse_id <- gse_ids[i]
-    
-    message("\n📦 Processing dataset ", i, "/", length(gse_ids), ": ", gse_id)
-    
-    # Download and process the dataset
-    result <- read_geo_dataset(gse_id, destdir = destdir, getGPL = getGPL, AnnotGPL = AnnotGPL)
-    
-    if (!is.null(result)) {
-      results[[gse_id]] <- result
-    } else {
-      failed_downloads <- c(failed_downloads, gse_id)
-    }
-    
-    # Sleep between downloads to be respectful
-    if (i < length(gse_ids)) {
-      message("⏳ Waiting ", sleep_between, " seconds before next download...")
-      Sys.sleep(sleep_between)
-    }
+
+  for (gse_id in gse_list) {
+    print(paste("📦 Processing dataset:", gse_id))
+
+    # Use a tryCatch block to handle errors gracefully
+    gse_data <- tryCatch({
+
+      # Download the GEO dataset
+      gse <- getGEO(gse_id, GSEMatrix = TRUE, AnnotGPL = TRUE)
+
+      # IMPORTANT: Use assay() instead of exprs()
+      # If multiple platforms exist, it returns a list, so we take the first element gse[[1]]
+      if (length(gse) > 1) {
+        print("⚠️ Multiple platforms found. Using the first one.")
+      }
+      expression_matrix <- assay(gse[[1]])
+
+      # Return the expression matrix (or the full object if you prefer)
+      expression_matrix
+
+    }, error = function(e) {
+      print(paste("❌ Error processing", gse_id, ":", e$message))
+      return(NULL) # Return NULL if an error occurs
+    })
+
+    results[[gse_id]] <- gse_data
   }
-  
-  # Summary
-  successful <- length(results)
-  failed <- length(failed_downloads)
-  
-  message("\n📊 Batch download completed!")
-  message("   ✅ Successful: ", successful, "/", length(gse_ids))
-  message("   ❌ Failed: ", failed, "/", length(gse_ids))
-  
-  if (failed > 0) {
-    message("   📝 Failed datasets: ", paste(failed_downloads, collapse = ", "))
-  }
-  
-  # Add summary information
-  attr(results, "summary") <- list(
-    total_requested = length(gse_ids),
-    successful = successful,
-    failed = failed,
-    failed_ids = failed_downloads,
-    download_time = Sys.time()
-  )
-  
+
   return(results)
 }
+
+# Now you can run your code again
+gse_list <- c("GSE102628", "GSE102641", "GSE102725")
+results <- read_multiple_geo_datasets(gse_list)
 
 #' Get Default GSE Dataset List
 #'
@@ -378,28 +403,28 @@ read_multiple_geo_datasets <- function(gse_ids, destdir = tempdir(), getGPL = TR
 #' gse_list <- get_default_gse_list()
 #' length(gse_list)
 get_default_gse_list <- function() {
-  c("GSE102628", "GSE102641", "GSE102725", "GSE103489", "GSE104509", "GSE106087", 
-    "GSE106992", "GSE107361", "GSE107871", "GSE109182", "GSE109248", "GSE111053", 
-    "GSE111054", "GSE111055", "GSE11307", "GSE114286", "GSE114729", "GSE116486", 
-    "GSE117239", "GSE117405", "GSE11903", "GSE120721", "GSE120899", "GSE121212", 
-    "GSE123785", "GSE123786", "GSE123787", "GSE124700", "GSE124701", "GSE130588", 
-    "GSE133385", "GSE133477", "GSE13355", "GSE14905", "GSE16161", "GSE18686", 
-    "GSE18948", "GSE20264", "GSE24767", "GSE26866", "GSE26952", "GSE2737", 
-    "GSE27887", "GSE30355", "GSE30768", "GSE30999", "GSE31652", "GSE32407", 
-    "GSE32473", "GSE32620", "GSE32924", "GSE34248", "GSE36381", "GSE36387", 
-    "GSE36842", "GSE38039", "GSE40033", "GSE40263", "GSE41662", "GSE41663", 
-    "GSE41664", "GSE41745", "GSE41905", "GSE42305", "GSE42632", "GSE47598", 
-    "GSE47751", "GSE47944", "GSE47965", "GSE48586", "GSE50598", "GSE50614", 
-    "GSE50790", "GSE51440", "GSE52361", "GSE52471", "GSE53431", "GSE53552", 
-    "GSE54456", "GSE55201", "GSE5667", "GSE57225", "GSE57376", "GSE57383", 
-    "GSE57386", "GSE57405", "GSE58121", "GSE58558", "GSE58749", "GSE59294", 
-    "GSE60481", "GSE60709", "GSE60971", "GSE61281", "GSE62408", "GSE63079", 
-    "GSE63741", "GSE63979", "GSE63980", "GSE121212", "GSE141570", "GSE65832", 
-    "GSE6601", "GSE66511", "GSE6710", "GSE67785", "GSE67853", "GSE68923", 
-    "GSE68924", "GSE68939", "GSE69967", "GSE72246", "GSE74697", "GSE75343", 
-    "GSE75890", "GSE77719", "GSE78023", "GSE78097", "GSE79704", "GSE80047", 
-    "GSE80429", "GSE82140", "GSE83582", "GSE83645", "GSE85034", "GSE86451", 
-    "GSE89725", "GSE92472", "GSE93423", "GSE99802", "GSE224783", "GSE140684", 
-    "GSE15719", "GSE95759", "GSE67785", "GSE157194", "GSE182740", "GSE261704", 
+  c("GSE102628", "GSE102641", "GSE102725", "GSE103489", "GSE104509", "GSE106087",
+    "GSE106992", "GSE107361", "GSE107871", "GSE109182", "GSE109248", "GSE111053",
+    "GSE111054", "GSE111055", "GSE11307", "GSE114286", "GSE114729", "GSE116486",
+    "GSE117239", "GSE117405", "GSE11903", "GSE120721", "GSE120899", "GSE121212",
+    "GSE123785", "GSE123786", "GSE123787", "GSE124700", "GSE124701", "GSE130588",
+    "GSE133385", "GSE133477", "GSE13355", "GSE14905", "GSE16161", "GSE18686",
+    "GSE18948", "GSE20264", "GSE24767", "GSE26866", "GSE26952", "GSE2737",
+    "GSE27887", "GSE30355", "GSE30768", "GSE30999", "GSE31652", "GSE32407",
+    "GSE32473", "GSE32620", "GSE32924", "GSE34248", "GSE36381", "GSE36387",
+    "GSE36842", "GSE38039", "GSE40033", "GSE40263", "GSE41662", "GSE41663",
+    "GSE41664", "GSE41745", "GSE41905", "GSE42305", "GSE42632", "GSE47598",
+    "GSE47751", "GSE47944", "GSE47965", "GSE48586", "GSE50598", "GSE50614",
+    "GSE50790", "GSE51440", "GSE52361", "GSE52471", "GSE53431", "GSE53552",
+    "GSE54456", "GSE55201", "GSE5667", "GSE57225", "GSE57376", "GSE57383",
+    "GSE57386", "GSE57405", "GSE58121", "GSE58558", "GSE58749", "GSE59294",
+    "GSE60481", "GSE60709", "GSE60971", "GSE61281", "GSE62408", "GSE63079",
+    "GSE63741", "GSE63979", "GSE63980", "GSE121212", "GSE141570", "GSE65832",
+    "GSE6601", "GSE66511", "GSE6710", "GSE67785", "GSE67853", "GSE68923",
+    "GSE68924", "GSE68939", "GSE69967", "GSE72246", "GSE74697", "GSE75343",
+    "GSE75890", "GSE77719", "GSE78023", "GSE78097", "GSE79704", "GSE80047",
+    "GSE80429", "GSE82140", "GSE83582", "GSE83645", "GSE85034", "GSE86451",
+    "GSE89725", "GSE92472", "GSE93423", "GSE99802", "GSE224783", "GSE140684",
+    "GSE15719", "GSE95759", "GSE67785", "GSE157194", "GSE182740", "GSE261704",
     "GSE283265")
 }
