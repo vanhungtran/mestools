@@ -7,13 +7,15 @@
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 <!-- badges: end -->
 
-**mestools** is an R toolkit that brings together the helper functions our team relies on when building data products. The package covers three main areas:
+**mestools** is a practical collection of helpers that we keep reaching for when shipping data products. The package currently focuses on three themes that match the functions exported in [`NAMESPACE`](NAMESPACE):
 
-- **Data utilities**: fast dataset summaries, safe file reading, batch helpers, and random data generation for demos or tests.
-- **Project & package workflows**: reproducible directory scaffolds, dependency checks, package installation helpers, and GitHub-aware deployment automation.
-- **GEO dataset integrations**: one-liners to download, summarise, and batch process Gene Expression Omnibus (GEO) series using the `GEOquery` API.
+| Category | When to reach for it | Key helpers |
+| --- | --- | --- |
+| **Data utilities** | Understand or fabricate tabular data quickly | `quick_summary()`, `read_file_safe()`, `batch_apply()`, `generate_random_df()` |
+| **Project & package workflows** | Bootstrap an analysis repo or automate checks before pushing | `create_project_structure()`, `check_dependencies()`, `install_and_load()`, `validate_github_repo()`, `deploy_package()` |
+| **GEO dataset integrations** | Work with Gene Expression Omnibus (GEO) accessions from R | `read_geo_dataset()`, `read_multiple_geo_datasets()`, `get_geo_summary()`, `get_default_gse_list()`, `process_all_geo_datasets()` |
 
-The functions are designed to work well together, come with informative console messaging, and are covered by automated tests so you can rely on them in your day-to-day scripts.
+Every helper is implemented under `R/`, documented in `man/`, and exercised in `tests/` so you can trust the examples below.
 
 ## Installation
 
@@ -31,12 +33,12 @@ or
 devtools::install_github("vanhungtran/mestools")
 ```
 
-> **Note**
-> Some features require optional packages:
+> **Heads-up**
+> Some features rely on optional packages and external services:
 >
-> - GEO helpers need `GEOquery` (via Bioconductor) and work best with an active internet connection.
-> - Deployment automation uses `devtools`, `usethis`, `gert`, `here`, and `gh`.
-> - `install_and_load()` can pull from CRAN, Bioconductor (`BiocManager`), or GitHub (`remotes`, `gh`).
+> - GEO helpers call [`GEOquery`](https://bioconductor.org/packages/release/bioc/html/GEOquery.html) (via Bioconductor) and need an internet connection.
+> - Deployment automation layers on `devtools`, `usethis`, `gert`, `here`, and `gh` for git operations.
+> - `install_and_load()` will install from CRAN, Bioconductor (`BiocManager`), or GitHub (`remotes`, `gh`).
 
 ## Quick start
 
@@ -50,7 +52,7 @@ create_project_structure("my_analysis")
 df <- generate_random_df(n_rows = 250, n_cols = 6, seed = 42)
 quick_summary(df)
 
-# Read multiple files with consistent error handling
+# Read a batch of files with consistent error handling
 inputs <- list.files("my_analysis/inputs", full.names = TRUE)
 results <- batch_apply(inputs, read_file_safe)
 
@@ -58,10 +60,10 @@ results <- batch_apply(inputs, read_file_safe)
 check_dependencies(c("ggplot2", "dplyr", "purrr"))
 ```
 
-## Data utility building blocks
+## Data utilities
 
-### `quick_summary()` – instant dataset diagnostics
-Return dimensions, column names & classes, missing values, and memory footprint without pulling in heavier dependencies.
+### `quick_summary()` — instant diagnostics
+Summarise a data frame without pulling in heavier dependencies. The helper returns dimensions, column classes, missing value counts, and approximate size.
 
 ```r
 summary_info <- quick_summary(mtcars)
@@ -69,24 +71,24 @@ summary_info$dimensions
 summary_info$missing_values
 ```
 
-### `read_file_safe()` – format-aware file loading
-Safely load CSV, TSV, RDS, or plain-text files. Unsupported formats and IO issues raise informative errors.
+### `read_file_safe()` — format-aware loading
+Load CSV, TSV, RDS, or plain-text files with informative errors. Unsupported types throw early so you can handle them upstream.
 
 ```r
-data <- read_file_safe("data/metrics.csv")
-notes <- read_file_safe("README.txt")
+csv_data <- read_file_safe("data/metrics.csv")
+notes <- read_file_safe("docs/notes.txt")
 ```
 
-### `batch_apply()` – consistent batch processing
-Iterate over vectors or lists with progress reporting and per-item error handling. Failures are collected rather than halting the run.
+### `batch_apply()` — resilient batch processing
+Apply a function over a vector or list, collect errors instead of crashing, and (optionally) show a progress bar.
 
 ```r
 files <- c("sample1.csv", "sample2.csv", "sample3.csv")
-parsed <- batch_apply(files, read_file_safe, .progress = TRUE)
+parsed <- batch_apply(files, read_file_safe, type = "csv", .progress = TRUE)
 ```
 
-### `generate_random_df()` – reproducible demo data
-Create mixed-type data frames (numeric, character, factor) for testing pipelines or showcasing analysis steps.
+### `generate_random_df()` — reproducible demo data
+Spin up a mixed-type data frame (numeric, character, factor columns) that is handy for tests or walkthroughs.
 
 ```r
 test_data <- generate_random_df(n_rows = 500, n_cols = 9, seed = 123)
@@ -94,17 +96,8 @@ test_data <- generate_random_df(n_rows = 500, n_cols = 9, seed = 123)
 
 ## Project and package workflows
 
-### Dependency management
-- `check_dependencies()` reports missing packages and can optionally install them.
-- `install_and_load()` iterates through CRAN, Bioconductor, or GitHub sources (including `username/repo` shortcuts) to install and attach packages.
-
-```r
-check_dependencies(c("usethis", "gert", "here"), auto_install = FALSE)
-install_and_load(c("ggplot2", "BiocManager", "tidyverse/dplyr"))
-```
-
-### Project scaffolding
-`create_project_structure()` spins up a consistent folder layout for analytic projects or teaching materials.
+### `create_project_structure()` — consistent scaffolds
+Start new analysis work with the same folder layout every time.
 
 ```r
 create_project_structure(
@@ -113,8 +106,16 @@ create_project_structure(
 )
 ```
 
-### GitHub-aware deployment
-Combine repository validation with automated rebuilds, tests, and pushes.
+### Dependency helpers — `check_dependencies()` and `install_and_load()`
+Verify that required packages are installed (optionally installing them), or iterate through a mix of CRAN, Bioconductor, and GitHub packages with one call.
+
+```r
+check_dependencies(c("usethis", "gert", "here"), auto_install = FALSE)
+install_and_load(c("ggplot2", "BiocManager", "tidyverse/dplyr"))
+```
+
+### Deployment helpers — `validate_github_repo()` and `deploy_package()`
+Validate that a target GitHub repository exists before running the automated deployment workflow. `deploy_package()` rebuilds documentation, runs tests/checks (when requested), commits via `gert`, and pushes to the configured remote.
 
 ```r
 if (validate_github_repo("https://github.com/vanhungtran/mestools.git")) {
@@ -122,11 +123,9 @@ if (validate_github_repo("https://github.com/vanhungtran/mestools.git")) {
 }
 ```
 
-`deploy_package()` cleans documentation, re-builds vignettes, runs `devtools::test()`/`devtools::check()` (when requested), commits via `gert`, and pushes to the configured remote.
-
 ## Working with GEO datasets
 
-The GEO helpers wrap `GEOquery` to simplify bulk downloads and exploration of RNA-seq/GEO series data.
+The GEO helpers wrap `GEOquery` to simplify downloading, summarising, and batching Gene Expression Omnibus accessions. Network calls can take a while; use the summary tools or subsets when exploring.
 
 ```r
 # Ensure GEOquery is available first
@@ -149,13 +148,13 @@ geo_list <- read_multiple_geo_datasets(subset)
 # process_all_geo_datasets(destdir = "geo_data")
 ```
 
-Each helper provides progress messaging and returns structured results, making it straightforward to pipe into your downstream analysis workflow. The exported default list currently contains 120+ curated GSE identifiers sourced from ongoing internal projects.
+See [GEO_FUNCTIONS_README.md](GEO_FUNCTIONS_README.md) and [GEO_IMPLEMENTATION_SUMMARY.md](GEO_IMPLEMENTATION_SUMMARY.md) for more detailed walkthroughs, and `test_geo_functions*.R` for reproducible scripts.
 
 ## Additional documentation & support
 
 - Browse NEWS in [NEWS.md](NEWS.md) for release notes.
 - Function reference pages (in `man/`) are generated with roxygen2.
-- Example GEO scripts live in `test_geo_functions.R` for interactive experimentation.
+- Example GEO scripts live in [`test_geo_functions.R`](test_geo_functions.R) and [`test_geo_functions_simple.R`](test_geo_functions_simple.R).
 
 ## Contributing
 
