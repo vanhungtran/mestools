@@ -1,4 +1,4 @@
-# mestools <img src="man/figures/logo.png" align="right" height="139" alt="" />
+# mestools <img src="man/figures/logo.png" align="right" height="139" alt="mestools logo" />
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/vanhungtran/mestools/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/vanhungtran/mestools/actions/workflows/R-CMD-check.yaml)
@@ -7,317 +7,183 @@
 [![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 <!-- badges: end -->
 
-**mestools** is a comprehensive R package that provides utility functions for data manipulation, package development, and deployment automation. It's designed to streamline common analytical tasks and enhance developer productivity.
+**mestools** is an R toolkit that brings together the helper functions our team relies on when building data products. The package covers three main areas:
 
-## Features
+- **Data utilities**: fast dataset summaries, safe file reading, batch helpers, and random data generation for demos or tests.
+- **Project & package workflows**: reproducible directory scaffolds, dependency checks, package installation helpers, and GitHub-aware deployment automation.
+- **GEO dataset integrations**: one-liners to download, summarise, and batch process Gene Expression Omnibus (GEO) series using the `GEOquery` API.
 
-### 🔧 Data Analysis Tools
-- **Quick data summaries** with comprehensive statistics
-- **Safe file reading** with automatic format detection
-- **Batch processing** with progress reporting and error handling
-- **Random data generation** for testing and demonstrations
-
-### 📦 Package Development
-- **Automated GitHub deployment** with testing and documentation
-- **Dependency checking** and installation management
-- **Repository validation** using GitHub API
-
-### 🏗️ Project Management
-- **Standardized project structure** creation
-- **Multi-source package installation** (CRAN, Bioconductor, GitHub)
-- **Development workflow automation**
+The functions are designed to work well together, come with informative console messaging, and are covered by automated tests so you can rely on them in your day-to-day scripts.
 
 ## Installation
 
-You can install the development version of mestools from [GitHub](https://github.com/vanhungtran/mestools) with:
+Install the development version from GitHub with your preferred tooling:
 
 ```r
 # install.packages("pak")
 pak::pak("vanhungtran/mestools")
 ```
 
-Or using devtools:
+or
 
 ```r
 # install.packages("devtools")
 devtools::install_github("vanhungtran/mestools")
 ```
 
-## Quick Start
+> **Note**
+> Some features require optional packages:
+>
+> - GEO helpers need `GEOquery` (via Bioconductor) and work best with an active internet connection.
+> - Deployment automation uses `devtools`, `usethis`, `gert`, `here`, and `gh`.
+> - `install_and_load()` can pull from CRAN, Bioconductor (`BiocManager`), or GitHub (`remotes`, `gh`).
+
+## Quick start
 
 ```r
 library(mestools)
 
-# Create a project structure
+# Create a reproducible project scaffold
 create_project_structure("my_analysis")
 
-# Generate test data
-df <- generate_random_df(1000, 8)
+# Simulate some data and explore it
+df <- generate_random_df(n_rows = 250, n_cols = 6, seed = 42)
+quick_summary(df)
 
-# Get quick summary
-summary_info <- quick_summary(df)
-print(summary_info)
+# Read multiple files with consistent error handling
+inputs <- list.files("my_analysis/inputs", full.names = TRUE)
+results <- batch_apply(inputs, read_file_safe)
 
-# Check package dependencies
-check_dependencies(c("ggplot2", "dplyr", "tidyr"))
+# Check that key packages are ready before you deploy
+check_dependencies(c("ggplot2", "dplyr", "purrr"))
 ```
 
-## Core Functions
+## Data utility building blocks
 
-### Data Analysis
-
-#### `quick_summary()`
-Get comprehensive data frame statistics:
+### `quick_summary()` – instant dataset diagnostics
+Return dimensions, column names & classes, missing values, and memory footprint without pulling in heavier dependencies.
 
 ```r
-# Basic usage
-data_summary <- quick_summary(mtcars)
-print(data_summary$dimensions)  # [1] 32 11
-print(data_summary$missing_values)  # Named vector of NA counts
+summary_info <- quick_summary(mtcars)
+summary_info$dimensions
+summary_info$missing_values
 ```
 
-#### `generate_random_df()`
-Create random data for testing:
+### `read_file_safe()` – format-aware file loading
+Safely load CSV, TSV, RDS, or plain-text files. Unsupported formats and IO issues raise informative errors.
 
 ```r
-# Generate test data
-test_data <- generate_random_df(n_rows = 500, n_cols = 6, seed = 42)
-
-# Creates mixed data types:
-# - numeric1, numeric4: normal distributions  
-# - character2, character5: random strings
-# - factor3, factor6: factor variables
+data <- read_file_safe("data/metrics.csv")
+notes <- read_file_safe("README.txt")
 ```
 
-#### `read_file_safe()`
-Safely read various file formats:
+### `batch_apply()` – consistent batch processing
+Iterate over vectors or lists with progress reporting and per-item error handling. Failures are collected rather than halting the run.
 
 ```r
-# Automatic format detection
-data <- read_file_safe("data.csv")
-text <- read_file_safe("notes.txt") 
-saved_object <- read_file_safe("results.rds")
-
-# Manual type specification
-data <- read_file_safe("file.dat", type = "csv")
+files <- c("sample1.csv", "sample2.csv", "sample3.csv")
+parsed <- batch_apply(files, read_file_safe, .progress = TRUE)
 ```
 
-#### `batch_apply()`
-Process multiple objects with progress tracking:
+### `generate_random_df()` – reproducible demo data
+Create mixed-type data frames (numeric, character, factor) for testing pipelines or showcasing analysis steps.
 
 ```r
-# Process list of data frames
-file_list <- list("file1.csv", "file2.csv", "file3.csv")
-results <- batch_apply(file_list, read_file_safe, .progress = TRUE)
-
-# Apply function with error handling
-results <- batch_apply(1:100, function(x) {
-  if (x %% 10 == 0) stop("Divisible by 10!")
-  return(x^2)
-})
+test_data <- generate_random_df(n_rows = 500, n_cols = 9, seed = 123)
 ```
 
-### Package Development
+## Project and package workflows
 
-#### `deploy_package()`
-Automated package deployment to GitHub:
+### Dependency management
+- `check_dependencies()` reports missing packages and can optionally install them.
+- `install_and_load()` iterates through CRAN, Bioconductor, or GitHub sources (including `username/repo` shortcuts) to install and attach packages.
 
 ```r
-# Deploy with default settings
-deploy_package()
+check_dependencies(c("usethis", "gert", "here"), auto_install = FALSE)
+install_and_load(c("ggplot2", "BiocManager", "tidyverse/dplyr"))
+```
 
-# Custom deployment
-deploy_package(
-  repo_url = "https://github.com/username/mypackage.git",
-  commit_message = "Major update with new features",
-  run_tests = TRUE,
-  run_checks = TRUE
+### Project scaffolding
+`create_project_structure()` spins up a consistent folder layout for analytic projects or teaching materials.
+
+```r
+create_project_structure(
+  path = "client-deliverable",
+  directories = c("data", "analysis", "reports", "figures")
 )
 ```
 
-#### `validate_github_repo()`
-Check if a GitHub repository exists:
+### GitHub-aware deployment
+Combine repository validation with automated rebuilds, tests, and pushes.
 
 ```r
-# Validate repository
-if (validate_github_repo("https://github.com/r-lib/usethis.git")) {
-  message("Repository is accessible!")
+if (validate_github_repo("https://github.com/vanhungtran/mestools.git")) {
+  deploy_package(run_tests = TRUE, run_checks = FALSE)
 }
 ```
 
-#### `check_dependencies()`
-Verify and install package dependencies:
+`deploy_package()` cleans documentation, re-builds vignettes, runs `devtools::test()`/`devtools::check()` (when requested), commits via `gert`, and pushes to the configured remote.
+
+## Working with GEO datasets
+
+The GEO helpers wrap `GEOquery` to simplify bulk downloads and exploration of RNA-seq/GEO series data.
 
 ```r
-# Check if packages are available
-check_dependencies(c("ggplot2", "dplyr", "tidyr"))
+# Ensure GEOquery is available first
+if (!requireNamespace("GEOquery", quietly = TRUE)) {
+  BiocManager::install("GEOquery")
+}
 
-# Auto-install missing packages
-check_dependencies(c("ggplot2", "dplyr", "tidyr"), auto_install = TRUE)
+# Download and process a single series
+geo <- read_geo_dataset("GSE102628")
+str(geo$expression_matrix)
+
+# Summarise multiple series without full downloads
+summary_tbl <- get_geo_summary(c("GSE102628", "GSE102641"))
+
+# Batch download using the curated defaults (with polite pauses)
+subset <- get_default_gse_list()[1:3]
+geo_list <- read_multiple_geo_datasets(subset)
+
+# Fire-and-forget processing of the full catalogue (can take hours!)
+# process_all_geo_datasets(destdir = "geo_data")
 ```
 
-#### `install_and_load()`
-Smart package installation from multiple sources:
+Each helper provides progress messaging and returns structured results, making it straightforward to pipe into your downstream analysis workflow. The exported default list currently contains 120+ curated GSE identifiers sourced from ongoing internal projects.
 
-```r
-# Install from CRAN, Bioconductor, or GitHub
-install_and_load(c(
-  "ggplot2",                    # CRAN
-  "DESeq2",                     # Bioconductor  
-  "tidyverse/dplyr",           # Direct GitHub
-  "some_package"               # GitHub search
-))
-```
+## Additional documentation & support
 
-### Project Management
-
-#### `create_project_structure()`
-Set up standardized project directories:
-
-```r
-# Default structure
-create_project_structure("my_project")
-# Creates: inputs/, scripts/, output/, docs/, ref/, reports/
-
-# Custom directories
-create_project_structure(
-  "custom_project",
-  directories = c("data", "analysis", "results", "figures")
-)
-```
-
-## Advanced Usage
-
-### Workflow Integration
-
-Combine functions for complete data analysis workflows:
-
-```r
-# 1. Set up project
-create_project_structure("analysis_2024")
-
-# 2. Check dependencies
-required_pkgs <- c("tidyverse", "ggplot2", "plotly")
-check_dependencies(required_pkgs, auto_install = TRUE)
-
-# 3. Process multiple files
-data_files <- list.files("data/", pattern = "\\.csv$", full.names = TRUE)
-datasets <- batch_apply(data_files, read_file_safe)
-
-# 4. Generate summaries
-summaries <- batch_apply(datasets, quick_summary)
-
-# 5. Create test data if needed
-test_data <- generate_random_df(1000, 10)
-```
-
-### Package Development Workflow
-
-Streamline your R package development:
-
-```r
-# 1. Check dependencies
-check_dependencies(c("devtools", "usethis", "testthat"))
-
-# 2. Validate target repository
-validate_github_repo("https://github.com/username/mypackage.git")
-
-# 3. Deploy package
-deploy_package(
-  commit_message = "Release version 1.0.0",
-  run_tests = TRUE,
-  run_checks = TRUE
-)
-```
-
-## Error Handling
-
-All functions include comprehensive error handling:
-
-```r
-# Functions fail gracefully with informative messages
-try({
-  read_file_safe("nonexistent.csv")
-})
-# Error: File does not exist: nonexistent.csv
-
-# Batch operations continue despite individual failures
-results <- batch_apply(c("good.csv", "bad.csv", "good2.csv"), read_file_safe)
-# Warnings for failed operations, but processing continues
-```
-
-## Configuration
-
-### Options
-
-Set package-specific options:
-
-```r
-# Enable test mode (useful for package development)
-options(mestools.test_mode = TRUE)
-
-# Disable progress bars globally  
-options(mestools.progress = FALSE)
-```
-
-### Dependencies
-
-**Required packages:**
-- `devtools`, `usethis`, `gert`, `here` (for deployment functions)
-- `utils`, `tools`, `stats` (base functionality)
-
-**Suggested packages:**
-- `gh` (for GitHub repository validation)
-- `remotes` (for GitHub package installation)
-- `BiocManager` (for Bioconductor packages)
+- Browse NEWS in [NEWS.md](NEWS.md) for release notes.
+- Function reference pages (in `man/`) are generated with roxygen2.
+- Example GEO scripts live in `test_geo_functions.R` for interactive experimentation.
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+We welcome improvements! See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution guide, coding standards, and release checklist.
 
-### Development Setup
+### Local development tips
 
 ```r
-# Clone repository
-git clone https://github.com/vanhungtran/mestools.git
-
 # Install development dependencies
 devtools::install_dev_deps()
 
-# Run tests
+# Run automated checks
 devtools::test()
-
-# Check package
 devtools::check()
 ```
 
-## License
+## License & citation
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is released under the MIT License – see [LICENSE.md](LICENSE.md) for details.
 
-## Citation
+To cite the package in publications:
 
 ```r
 citation("mestools")
 ```
 
-## Changelog
+## Getting help
 
-See [NEWS.md](NEWS.md) for details about changes in each version.
-
-## Getting Help
-
-- **Documentation**: Use `?function_name` for help on specific functions
-- **Issues**: Report bugs at [GitHub Issues](https://github.com/vanhungtran/mestools/issues)
-- **Discussions**: Ask questions at [GitHub Discussions](https://github.com/vanhungtran/mestools/discussions)
-
-## Related Packages
-
-- [`usethis`](https://usethis.r-lib.org/) - Workflow functions for package development
-- [`devtools`](https://devtools.r-lib.org/) - Package development tools
-- [`here`](https://here.r-lib.org/) - Reproducible file paths
-- [`gert`](https://docs.ropensci.org/gert/) - Simple git client
-
----
-
-*Developed by [Lucas VHH TRAN](https://github.com/vanhungtran) • 2025*
+- Documentation: use `?function_name` once the package is loaded.
+- Issues: report bugs or feature requests at [GitHub Issues](https://github.com/vanhungtran/mestools/issues).
+- Questions: start a thread in [GitHub Discussions](https://github.com/vanhungtran/mestools/discussions).

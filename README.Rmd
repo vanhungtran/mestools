@@ -13,50 +13,192 @@ knitr::opts_chunk$set(
 )
 ```
 
-# mestools
+# mestools <img src="man/figures/logo.png" align="right" height="139" alt="mestools logo" />
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/vanhungtran/mestools/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/vanhungtran/mestools/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/vanhungtran/mestools/branch/main/graph/badge.svg)](https://codecov.io/gh/vanhungtran/mestools?branch=main)
+[![CRAN status](https://www.r-pkg.org/badges/version/mestools)](https://CRAN.R-project.org/package=mestools)
+[![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 <!-- badges: end -->
 
-The goal of mestools is to ...
+**mestools** is an R toolkit that brings together the helper functions our team relies on when building data products. The package covers three main areas:
+
+- **Data utilities**: fast dataset summaries, safe file reading, batch helpers, and random data generation for demos or tests.
+- **Project & package workflows**: reproducible directory scaffolds, dependency checks, package installation helpers, and GitHub-aware deployment automation.
+- **GEO dataset integrations**: one-liners to download, summarise, and batch process Gene Expression Omnibus (GEO) series using the `GEOquery` API.
+
+The functions are designed to work well together, come with informative console messaging, and are covered by automated tests so you can rely on them in your day-to-day scripts.
 
 ## Installation
 
-<<<<<<< HEAD
-You can install the development version of mestools from [GitHub](https://github.com/) with:
+Install the development version from GitHub with your preferred tooling:
 
-``` r
+```r
 # install.packages("pak")
 pak::pak("vanhungtran/mestools")
-=======
-You can install the development version of mestools like so:
-
-``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
->>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 ```
 
-## Example
+or
 
-This is a basic example which shows you how to solve a common problem:
+```r
+# install.packages("devtools")
+devtools::install_github("vanhungtran/mestools")
+```
 
-```{r example}
+> **Note**
+> Some features require optional packages:
+>
+> - GEO helpers need `GEOquery` (via Bioconductor) and work best with an active internet connection.
+> - Deployment automation uses `devtools`, `usethis`, `gert`, `here`, and `gh`.
+> - `install_and_load()` can pull from CRAN, Bioconductor (`BiocManager`), or GitHub (`remotes`, `gh`).
+
+## Quick start
+
+```{r quick-start, eval = FALSE}
 library(mestools)
-## basic example code
+
+# Create a reproducible project scaffold
+create_project_structure("my_analysis")
+
+# Simulate some data and explore it
+df <- generate_random_df(n_rows = 250, n_cols = 6, seed = 42)
+quick_summary(df)
+
+# Read multiple files with consistent error handling
+inputs <- list.files("my_analysis/inputs", full.names = TRUE)
+results <- batch_apply(inputs, read_file_safe)
+
+# Check that key packages are ready before you deploy
+check_dependencies(c("ggplot2", "dplyr", "purrr"))
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+## Data utility building blocks
 
-```{r cars}
-summary(cars)
+### `quick_summary()` – instant dataset diagnostics
+Return dimensions, column names & classes, missing values, and memory footprint without pulling in heavier dependencies.
+
+```{r quick-summary, eval = FALSE}
+summary_info <- quick_summary(mtcars)
+summary_info$dimensions
+summary_info$missing_values
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
+### `read_file_safe()` – format-aware file loading
+Safely load CSV, TSV, RDS, or plain-text files. Unsupported formats and IO issues raise informative errors.
 
-You can also embed plots, for example:
-
-```{r pressure, echo = FALSE}
-plot(pressure)
+```{r read-file-safe, eval = FALSE}
+data <- read_file_safe("data/metrics.csv")
+notes <- read_file_safe("README.txt")
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+### `batch_apply()` – consistent batch processing
+Iterate over vectors or lists with progress reporting and per-item error handling. Failures are collected rather than halting the run.
+
+```{r batch-apply, eval = FALSE}
+files <- c("sample1.csv", "sample2.csv", "sample3.csv")
+parsed <- batch_apply(files, read_file_safe, .progress = TRUE)
+```
+
+### `generate_random_df()` – reproducible demo data
+Create mixed-type data frames (numeric, character, factor) for testing pipelines or showcasing analysis steps.
+
+```{r random-df, eval = FALSE}
+test_data <- generate_random_df(n_rows = 500, n_cols = 9, seed = 123)
+```
+
+## Project and package workflows
+
+### Dependency management
+- `check_dependencies()` reports missing packages and can optionally install them.
+- `install_and_load()` iterates through CRAN, Bioconductor, or GitHub sources (including `username/repo` shortcuts) to install and attach packages.
+
+```{r dependencies, eval = FALSE}
+check_dependencies(c("usethis", "gert", "here"), auto_install = FALSE)
+install_and_load(c("ggplot2", "BiocManager", "tidyverse/dplyr"))
+```
+
+### Project scaffolding
+`create_project_structure()` spins up a consistent folder layout for analytic projects or teaching materials.
+
+```{r scaffold, eval = FALSE}
+create_project_structure(
+  path = "client-deliverable",
+  directories = c("data", "analysis", "reports", "figures")
+)
+```
+
+### GitHub-aware deployment
+Combine repository validation with automated rebuilds, tests, and pushes.
+
+```{r deployment, eval = FALSE}
+if (validate_github_repo("https://github.com/vanhungtran/mestools.git")) {
+  deploy_package(run_tests = TRUE, run_checks = FALSE)
+}
+```
+
+`deploy_package()` cleans documentation, re-builds vignettes, runs `devtools::test()`/`devtools::check()` (when requested), commits via `gert`, and pushes to the configured remote.
+
+## Working with GEO datasets
+
+The GEO helpers wrap `GEOquery` to simplify bulk downloads and exploration of RNA-seq/GEO series data.
+
+```{r geo, eval = FALSE}
+# Ensure GEOquery is available first
+if (!requireNamespace("GEOquery", quietly = TRUE)) {
+  BiocManager::install("GEOquery")
+}
+
+# Download and process a single series
+geo <- read_geo_dataset("GSE102628")
+str(geo$expression_matrix)
+
+# Summarise multiple series without full downloads
+summary_tbl <- get_geo_summary(c("GSE102628", "GSE102641"))
+
+# Batch download using the curated defaults (with polite pauses)
+subset <- get_default_gse_list()[1:3]
+geo_list <- read_multiple_geo_datasets(subset)
+
+# Fire-and-forget processing of the full catalogue (can take hours!)
+# process_all_geo_datasets(destdir = "geo_data")
+```
+
+Each helper provides progress messaging and returns structured results, making it straightforward to pipe into your downstream analysis workflow. The exported default list currently contains 120+ curated GSE identifiers sourced from ongoing internal projects.
+
+## Additional documentation & support
+
+- Browse NEWS in [NEWS.md](NEWS.md) for release notes.
+- Function reference pages (in `man/`) are generated with roxygen2.
+- Example GEO scripts live in `test_geo_functions.R` for interactive experimentation.
+
+## Contributing
+
+We welcome improvements! See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution guide, coding standards, and release checklist.
+
+### Local development tips
+
+```{r dev, eval = FALSE}
+# Install development dependencies
+devtools::install_dev_deps()
+
+# Run automated checks
+devtools::test()
+devtools::check()
+```
+
+## License & citation
+
+This project is released under the MIT License – see [LICENSE.md](LICENSE.md) for details.
+
+To cite the package in publications:
+
+```{r cite, eval = FALSE}
+citation("mestools")
+```
+
+## Getting help
+
+- Documentation: use `?function_name` once the package is loaded.
+- Issues: report bugs or feature requests at [GitHub Issues](https://github.com/vanhungtran/mestools/issues).
+- Questions: start a thread in [GitHub Discussions](https://github.com/vanhungtran/mestools/discussions).
