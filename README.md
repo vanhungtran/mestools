@@ -17,6 +17,12 @@
 - **Batch processing** with progress reporting and error handling
 - **Random data generation** for testing and demonstrations
 
+### 🧬 Genomics & Microbiome Analysis
+- **GEO dataset downloading** - Batch download and process Gene Expression Omnibus datasets
+- **16S rRNA primer tools** - Design and evaluate primers for microbiome sequencing
+- **Primer coverage analysis** - Assess taxonomic coverage and specificity
+- **In silico PCR** - Test primer pairs against reference databases
+
 ### 📦 Package Development
 - **Automated GitHub deployment** with testing and documentation
 - **Dependency checking** and installation management
@@ -60,7 +66,39 @@ print(summary_info)
 
 # Check package dependencies
 check_dependencies(c("ggplot2", "dplyr", "tidyr"))
+
+# Download GEO datasets
+geo_data <- read_geo_dataset("GSE102628")
+
+# Get 16S rRNA primers
+primers <- get_16s_primers()
+v4_primers <- get_16s_primers(region = "V4")
 ```
+
+## Key Features
+
+### 🧬 Genomics & Microbiome Analysis (NEW!)
+
+**GEO Dataset Tools:**
+- Download and process Gene Expression Omnibus (GEO) datasets
+- Batch processing of multiple datasets with error handling
+- Extract expression matrices, phenotype data, and feature annotations
+- 139 pre-curated GEO dataset IDs included
+- Automatic retry and rate limiting for reliable downloads
+
+**16S rRNA Primer Tools:**
+- Access database of validated primer pairs for all 16S regions (V1-V9)
+- Get primers optimized for specific applications (gut, soil, marine, etc.)
+- Design custom primers for your sequences
+- Evaluate primer coverage across bacterial/archaeal taxa
+- Perform in silico PCR to test primer specificity
+- Compare multiple primer pairs side-by-side
+- Get recommendations based on sample type and sequencing platform
+
+**Supported 16S Regions:**
+- V1-V2, V1-V3, V3-V4, V4, V4-V5, V6-V8, V7-V9
+- Earth Microbiome Project standard primers included
+- Human Microbiome Project primers included
 
 ## Core Functions
 
@@ -186,6 +224,78 @@ create_project_structure(
 )
 ```
 
+### Genomics & Microbiome Tools
+
+#### GEO Dataset Functions
+
+Download and process Gene Expression Omnibus datasets:
+
+```r
+# Download a single GEO dataset
+result <- read_geo_dataset("GSE102628")
+expression_matrix <- result$expression_matrix
+metadata <- result$phenotype_data
+
+# Batch download multiple datasets
+gse_list <- c("GSE102628", "GSE102641", "GSE102725")
+results <- read_multiple_geo_datasets(gse_list)
+
+# Get dataset summaries without downloading
+summary_info <- get_geo_summary(c("GSE102628", "GSE102641"))
+
+# Get predefined list of 139 datasets
+all_datasets <- get_default_gse_list()
+
+# Process all default datasets (or subset for testing)
+test_results <- process_all_geo_datasets(subset_size = 5)
+```
+
+#### 16S rRNA Primer Tools
+
+Design and evaluate primers for microbiome sequencing:
+
+```r
+# Get all available 16S primer pairs
+all_primers <- get_16s_primers()
+
+# Get primers for specific region
+v4_primers <- get_16s_primers(region = "V4")
+v3v4_primers <- get_16s_primers(region = "V3-V4")
+
+# Get primers for specific application
+gut_primers <- get_16s_primers(application = "gut")
+environmental_primers <- get_16s_primers(application = "environmental")
+
+# Design custom primers for your sequences
+custom_primers <- design_16s_primers(
+  sequences = my_16s_sequences,
+  target_region = "V4",
+  min_coverage = 0.95
+)
+
+# Evaluate primer coverage
+evaluation <- evaluate_primer_coverage(
+  forward_primer = "GTGCCAGCMGCCGCGGTAA",
+  reverse_primer = "GGACTACHVGGGTWTCTAAT",
+  reference_db = silva_database
+)
+
+# Test primers in silico
+pcr_results <- test_primers_insilico(
+  forward = "GTGCCAGCMGCCGCGGTAA",
+  reverse = "GGACTACHVGGGTWTCTAAT",
+  database = "silva",
+  max_mismatches = 2
+)
+
+# Get primer recommendations
+recommendations <- recommend_primers(
+  sample_type = "human_gut",
+  sequencing_platform = "illumina",
+  read_length = 250
+)
+```
+
 ## Advanced Usage
 
 ### Workflow Integration
@@ -209,6 +319,77 @@ summaries <- batch_apply(datasets, quick_summary)
 
 # 5. Create test data if needed
 test_data <- generate_random_df(1000, 10)
+```
+
+### Microbiome Study Workflow
+
+Complete workflow for 16S rRNA microbiome analysis:
+
+```r
+# 1. Set up microbiome project
+create_project_structure("microbiome_study_2024")
+
+# 2. Get recommended primers for your sample type
+primers <- recommend_primers(
+  sample_type = "human_gut",
+  sequencing_platform = "illumina",
+  read_length = 250
+)
+
+# 3. Evaluate primer coverage
+coverage <- evaluate_primer_coverage(
+  forward_primer = primers$forward_seq,
+  reverse_primer = primers$reverse_seq,
+  reference_db = "silva"
+)
+
+# 4. Test primers in silico
+pcr_test <- test_primers_insilico(
+  forward = primers$forward_seq,
+  reverse = primers$reverse_seq,
+  database = "silva",
+  max_mismatches = 2
+)
+
+# 5. Compare multiple primer pairs
+comparison <- compare_primer_pairs(
+  primer_pairs = list(
+    V3V4 = c("CCTACGGGNGGCWGCAG", "GACTACHVGGGTATCTAATCC"),
+    V4 = c("GTGCCAGCMGCCGCGGTAA", "GGACTACHVGGGTWTCTAAT")
+  ),
+  reference_db = "silva"
+)
+```
+
+### GEO Data Analysis Workflow
+
+Download and analyze multiple GEO datasets:
+
+```r
+# 1. Get list of relevant datasets
+gse_list <- get_default_gse_list()
+gut_datasets <- gse_list[grep("gut|intestin", gse_list, ignore.case = TRUE)]
+
+# 2. Download datasets
+datasets <- read_multiple_geo_datasets(
+  gse_ids = gut_datasets,
+  destdir = "geo_data",
+  sleep_between = 2
+)
+
+# 3. Process expression data
+for (gse_id in names(datasets)) {
+  expr_matrix <- datasets[[gse_id]]$expression_matrix
+  phenotype <- datasets[[gse_id]]$phenotype_data
+  
+  # Your analysis here
+  cat("Processing", gse_id, ":", 
+      nrow(expr_matrix), "features x", 
+      ncol(expr_matrix), "samples\n")
+}
+
+# 4. Save processed results
+saveRDS(datasets, "processed_geo_datasets.rds")
 ```
 
 ### Package Development Workflow
@@ -270,6 +451,9 @@ options(mestools.progress = FALSE)
 - `gh` (for GitHub repository validation)
 - `remotes` (for GitHub package installation)
 - `BiocManager` (for Bioconductor packages)
+- `GEOquery` (for GEO dataset downloading)
+- `Biostrings` (for 16S sequence analysis)
+- `DECIPHER` (for primer design and evaluation)
 
 ## Contributing
 

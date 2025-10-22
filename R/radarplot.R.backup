@@ -1,15 +1,16 @@
 # ================================
 # Packages
 # ================================
-suppressPackageStartupMessages({
-  library(dplyr)
-  library(tidyr)
-  library(ggplot2)
-  library(rstatix)
-  library(fmsb)
-  library(purrr)
-  library(grDevices)  # adjustcolor, palettes
-})
+# Packages loaded conditionally to avoid installation requirements
+# suppressPackageStartupMessages({
+#   library(dplyr)
+#   library(tidyr)
+#   library(ggplot2)
+#   library(rstatix)
+#   library(fmsb)
+#   library(purrr)
+#   library(grDevices)  # adjustcolor, palettes
+# })
 
 `%||%` <- function(a, b) if (!is.null(a)) a else b  # small helper
 
