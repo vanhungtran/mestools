@@ -589,3 +589,379 @@ print.primer_order <- function(x, ...) {
   cat(x)
   invisible(x)
 }
+
+
+# --- Sanger Sequencing Analysis Functions ---
+
+#' Load and Process Sanger Sequencing Files
+#'
+#' Loads ABI files, renames them by removing date/time stamps, and creates 
+#' groups of forward and reverse reads.
+#'
+#' @param path Character. Path to directory containing .ab1 files
+#' @return Character vector of unique group names
+#' @export
+#' @examples
+#' \dontrun{
+#' groups <- load_sanger_files("path/to/abi/files")
+#' }
+load_sanger_files <- function(path = path) {
+  
+  if (!requireNamespace("stringr", quietly = TRUE)) {
+    stop("Package 'stringr' is required. Install with: install.packages('stringr')")
+  }
+  
+  # Get the file names and the list of file names you want to replace them with
+  # Assumes file names are in the following convention: YYYY_MM_DD_16S_ACC#_FWD_WELL_DATE_STAMP.ab1
+  old_file_names <- dir(path, pattern = ".ab1", full.names = TRUE)
+  new_file_names <- gsub("FWD_\\w+\\d+_\\d+_\\d+.*", "FWD.ab1", old_file_names)
+  new_file_names <- gsub("REV_\\w+\\d+_\\d+_\\d+.*", "REV.ab1", new_file_names)
+  
+  file.rename(from = old_file_names, to = new_file_names)
+  
+  # Index forward and reverse reads
+  files_cleaned <- new_file_names
+  f_matches <- stringr::str_match(files_cleaned, "FWD")
+  f_indices <- which(!is.na(f_matches))
+  r_matches <- stringr::str_match(files_cleaned, "REV")
+  r_indices <- which(!is.na(r_matches))
+  
+  # ONLY keep files that match either FWD or REV suffix
+  keep <- c(f_indices, r_indices)
+  files_cleaned <- files_cleaned[keep]
+  
+  # Remove the suffixes to create a groupname
+  files_cleaned <- gsub("_FWD.*", "", files_cleaned)
+  files_cleaned <- gsub("_REV.*", "", files_cleaned)
+  
+  # Create groups
+  group_dataframe <- data.frame("file.path" = new_file_names[keep], "group" = files_cleaned)
+  groups <- unique(group_dataframe$group)
+  
+  return(groups)
+}
+
+#' Generate Sanger Contig from Forward and Reverse Reads
+#'
+#' Creates a consensus sequence from forward and reverse Sanger reads using
+#' the sangeranalyseR package.
+#'
+#' @param path Character. Path to directory containing .ab1 files
+#' @param contigName Character. Name for the contig
+#' @param suffixForwardRegExp Character. Regular expression for forward read suffix
+#' @param suffixReverseRegExp Character. Regular expression for reverse read suffix
+#' @param file_name_fwd Character. Forward read filename
+#' @param file_name_rev Character. Reverse read filename
+#' @return List containing summary statistics and contig object
+#' @export
+#' @examples
+#' \dontrun{
+#' contig <- create_sanger_contig(
+#'   path = "path/to/files",
+#'   contigName = "Sample01",
+#'   suffixForwardRegExp = "_FWD",
+#'   suffixReverseRegExp = "_REV",
+#'   file_name_fwd = "Sample01_FWD.ab1",
+#'   file_name_rev = "Sample01_REV.ab1"
+#' )
+#' }
+create_sanger_contig <- function(path, contigName, suffixForwardRegExp, 
+                                 suffixReverseRegExp, file_name_fwd, file_name_rev) {
+  
+  if (!requireNamespace("sangeranalyseR", quietly = TRUE)) {
+    stop("Package 'sangeranalyseR' is required. Install with: BiocManager::install('sangeranalyseR')")
+  }
+  
+  message("Reading forward and reverse reads and generating contig")
+  
+  sangerContig <- sangeranalyseR::SangerContig(
+    inputSource           = "ABIF",
+    ABIF_Directory        = path,
+    contigName            = contigName,
+    REGEX_SuffixForward   = suffixForwardRegExp,
+    REGEX_SuffixReverse   = suffixReverseRegExp,
+    TrimmingMethod        = "M2",
+    M1TrimmingCutoff      = NULL,
+    M2CutoffQualityScore  = 40,
+    M2SlidingWindowSize   = 10,
+    minReadLength         = 0,
+    signalRatioCutoff     = 0.33,
+    showTrimmed           = TRUE,
+    geneticCode           = sangeranalyseR::GENETIC_CODE
+  )
+  
+  message("Exporting fasta sequence")
+  
+  # Create output directories if they don't exist
+  if (!dir.exists("../Fasta_Sequences/")) {
+    dir.create("../Fasta_Sequences/", recursive = TRUE)
+  }
+  if (!dir.exists("../Results/")) {
+    dir.create("../Results/", recursive = TRUE)
+  }
+  
+  sangeranalyseR::writeFasta(sangerContig, outputDir = "../Fasta_Sequences/", selection = "contig")
+  
+  message("Exporting contig alignment")
+  
+  alignment <- sangerContig@alignment
+  alignment <- Biostrings::DNAMultipleAlignment(alignment)
+  filepath <- file.path("../Results", paste0("contigAlign_", contigName, ".txt"))
+  DECIPHER::WriteAlignments(alignment, filepath)
+  
+  message("Subsetting quality data")
+  
+  QualityFWD <- sangerContig@forwardReadList[[file_name_fwd]]@QualityReport
+  QualityREV <- sangerContig@reverseReadList[[file_name_rev]]@QualityReport
+  
+  message("Generating read summary")
+  
+  read.summary <- c(
+    "consensus.length"       = sangerContig@contigSeq@length,
+    "trimmed.seq.length.FWD" = QualityFWD@trimmedSeqLength,
+    "trimmed.seq.length.REV" = QualityREV@trimmedSeqLength,
+    "trimmed.Mean.qual.FWD"  = QualityFWD@trimmedMeanQualityScore,
+    "trimmed.Mean.qual.REV"  = QualityREV@trimmedMeanQualityScore
+  )
+  
+  return(list("summary" = read.summary, "contig" = sangerContig))
+}
+
+#' Summarize Sanger Sequencing Data
+#'
+#' Runs the contig generation function and organizes quality data into a dataframe.
+#'
+#' @param group Character. Group identifier
+#' @param path Character. Path to directory containing .ab1 files
+#' @param summarylist List. List to store summary data
+#' @return Updated summarylist with quality metrics
+#' @export
+#' @examples
+#' \dontrun{
+#' summary <- summarize_sanger(
+#'   group = "Sample01",
+#'   path = "path/to/files",
+#'   summarylist = list()
+#' )
+#' }
+summarize_sanger <- function(group, path = path, summarylist = summarylist) {
+  
+  file_name_fwd <- paste0(group, "_FWD.ab1")
+  file_name_rev <- paste0(group, "_REV.ab1")
+  contigName <- basename(group)
+  
+  col_names <- c(
+    "Consensus length",
+    "trim length FWD",
+    "trim length REV",
+    "trim MeanQual FWD",
+    "trim MeanQual REV"
+  )
+  
+  consensus_sequence <- create_sanger_contig(
+    path                = path,
+    contigName          = contigName,
+    suffixForwardRegExp = "_FWD",
+    suffixReverseRegExp = "_REV",
+    file_name_fwd       = file_name_fwd,
+    file_name_rev       = file_name_rev
+  )
+  
+  # Separate summary data from the consensus sequence object 
+  # Turn it into a dataframe with row names from above
+  summary <- consensus_sequence$summary
+  summary <- t(summary)
+  summary <- as.data.frame(summary)
+  colnames(summary) <- col_names
+  
+  # Add a column called sample which is equal to the contig name
+  summary$sample <- contigName
+  
+  summarylist[[group]] <- summary
+  
+  return(summarylist)
+}
+
+#' Analyze Sanger Sequences in Batch
+#'
+#' Processes all Sanger sequence files in a directory and generates quality reports.
+#'
+#' @param path Character. Path to directory containing .ab1 files
+#' @return Invisibly returns the summary data.frame
+#' @export
+#' @examples
+#' \dontrun{
+#' # Analyze all sequences in directory
+#' results <- analyze_sanger_sequences("path/to/abi/files")
+#' }
+analyze_sanger_sequences <- function(path) {
+  
+  # Load the files and group into groups based on accession #
+  groups <- load_sanger_files(path) 
+  
+  # Generate an empty summary list to put the summary data in
+  summarylist <- list()
+  
+  # Run summarize_sanger function on all files in the path to generate fasta files
+  summarylist <- lapply(groups, FUN = summarize_sanger, path = path, summarylist = summarylist)
+  
+  # Then concatenate the summary data into a single df
+  summary_data <- do.call(rbind, summarylist)
+  
+  # Change the order of the columns so the contig name is the first column of the df
+  summary_data <- summary_data[, c(6, 1:5)]
+  
+  # Export the summary data into a csv in the Results folder
+  resultpath <- file.path("../Results", paste0("Quality_Report_", basename(path), ".csv"))
+  write.csv(summary_data, file = resultpath, row.names = FALSE)
+  
+  message("Analysis complete! Results saved to: ", resultpath)
+  
+  invisible(summary_data)
+}
+
+#' Process Single Sanger Read
+#'
+#' Analyzes a single Sanger sequencing read (forward or reverse only).
+#'
+#' @param readFileName Character. Path to the .ab1 file
+#' @param readFeature Character. Read feature identifier
+#' @return List containing summary statistics and read object
+#' @export
+#' @examples
+#' \dontrun{
+#' single_result <- process_single_sanger_read(
+#'   readFileName = "path/to/Sample01_FWD.ab1",
+#'   readFeature = "Forward"
+#' )
+#' }
+process_single_sanger_read <- function(readFileName, readFeature) {
+  
+  if (!requireNamespace("sangeranalyseR", quietly = TRUE)) {
+    stop("Package 'sangeranalyseR' is required. Install with: BiocManager::install('sangeranalyseR')")
+  }
+  
+  sangerRead <- sangeranalyseR::SangerRead(
+    inputSource          = "ABIF",
+    readFeature          = readFeature,
+    readFileName         = readFileName,
+    geneticCode          = sangeranalyseR::GENETIC_CODE,
+    TrimmingMethod       = "M2",
+    M1TrimmingCutoff     = NULL,
+    M2CutoffQualityScore = 15,
+    M2SlidingWindowSize  = 10, 
+    baseNumPerRow        = 100,
+    heightPerRow         = 200,
+    signalRatioCutoff    = 0.33,
+    showTrimmed          = TRUE
+  )
+  
+  # Create output directory if it doesn't exist
+  if (!dir.exists("../Fasta_Sequences/")) {
+    dir.create("../Fasta_Sequences/", recursive = TRUE)
+  }
+  
+  sangeranalyseR::writeFasta(sangerRead, outputDir = "../Fasta_Sequences", compress = FALSE)
+  
+  Quality <- sangerRead@QualityReport
+  
+  message("Generating read summary")
+  
+  read.summary <- c(
+    "trimmed.seq.length" = Quality@trimmedSeqLength,
+    "trimmed.Mean.qual"  = Quality@trimmedMeanQualityScore
+  )
+  
+  return(list("summary" = read.summary, "Read" = sangerRead))
+}
+
+#' Summarize Single Sanger Read
+#'
+#' Creates a summary dataframe for a single Sanger read.
+#'
+#' @param readFileName Character. Path to the .ab1 file
+#' @param readFeature Character. Read feature identifier
+#' @param summarylist List. List to store summary data
+#' @return Updated summarylist with quality metrics
+#' @export
+#' @examples
+#' \dontrun{
+#' summary <- summarize_single_sanger(
+#'   readFileName = "path/to/Sample01_FWD.ab1",
+#'   readFeature = "Forward",
+#'   summarylist = list()
+#' )
+#' }
+summarize_single_sanger <- function(readFileName, readFeature, summarylist = summarylist) {
+  
+  singleName <- basename(readFileName)
+  
+  col_names <- c("trim length", "trim MeanQual")
+  
+  single_sequence <- process_single_sanger_read(
+    readFileName = readFileName,
+    readFeature  = readFeature
+  )
+  
+  # Separate summary data from the read sequence object 
+  # Turn it into a dataframe with row names from above
+  summary <- single_sequence$summary
+  summary <- t(summary)
+  summary <- as.data.frame(summary)
+  colnames(summary) <- col_names
+  
+  # Add a column called sample which is equal to the read name
+  summary$sample <- singleName
+  
+  summarylist[[readFileName]] <- summary
+  
+  return(summarylist)
+}
+
+#' Analyze Single Sanger Sequence
+#'
+#' Processes a single Sanger read and generates a quality report.
+#'
+#' @param readFileName Character. Path to the .ab1 file
+#' @param readFeature Character. Read feature identifier
+#' @return Invisibly returns the summary data
+#' @export
+#' @examples
+#' \dontrun{
+#' # Analyze single forward read
+#' result <- analyze_single_sanger_sequence(
+#'   readFileName = "path/to/Sample01_FWD.ab1",
+#'   readFeature = "Forward"
+#' )
+#' }
+analyze_single_sanger_sequence <- function(readFileName, readFeature) {
+  
+  # Generate an empty summary list to put the summary data in
+  summarylist <- list()
+  
+  # Run summarize function to generate fasta file
+  summarylist <- summarize_single_sanger(
+    readFileName = readFileName, 
+    readFeature  = readFeature, 
+    summarylist  = summarylist
+  )
+  
+  # Extract the summary data
+  summary_data <- summarylist[[1]]
+  
+  # Change the order of the columns so the read name is the first column
+  summary_data <- summary_data[, c(3, 1, 2)]
+  
+  # Create output directory if it doesn't exist
+  if (!dir.exists("../Results/")) {
+    dir.create("../Results/", recursive = TRUE)
+  }
+  
+  # Export the summary data into a csv in the Results folder
+  resultpath <- file.path("../Results", paste0("Quality_Report_", basename(readFileName), ".csv"))
+  write.csv(summary_data, file = resultpath, row.names = FALSE)
+  
+  message("Analysis complete! Results saved to: ", resultpath)
+  
+  invisible(summary_data)
+}
