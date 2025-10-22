@@ -596,16 +596,17 @@ print.primer_order <- function(x, ...) {
 #' Load and Process Sanger Sequencing Files
 #'
 #' Loads ABI files, renames them by removing date/time stamps, and creates 
-#' groups of forward and reverse reads.
+#' groups of forward and reverse reads. Assumes file names are in the 
+#' convention: YYYY_MM_DD_16S_ACC#_FWD_WELL_DATE_STAMP.ab1
 #'
 #' @param path Character. Path to directory containing .ab1 files
 #' @return Character vector of unique group names
 #' @export
 #' @examples
 #' \dontrun{
-#' groups <- load_sanger_files("path/to/abi/files")
+#' groups <- load.files("path/to/abi/files")
 #' }
-load_sanger_files <- function(path = path) {
+load.files <- function(path = path) {
   
   if (!requireNamespace("stringr", quietly = TRUE)) {
     stop("Package 'stringr' is required. Install with: install.packages('stringr')")
@@ -620,23 +621,23 @@ load_sanger_files <- function(path = path) {
   file.rename(from = old_file_names, to = new_file_names)
   
   # Index forward and reverse reads
-  files_cleaned <- new_file_names
-  f_matches <- stringr::str_match(files_cleaned, "FWD")
-  f_indices <- which(!is.na(f_matches))
-  r_matches <- stringr::str_match(files_cleaned, "REV")
-  r_indices <- which(!is.na(r_matches))
+  files_cleaned = new_file_names
+  f_matches = stringr::str_match(files_cleaned, "FWD")
+  f_indices = which(!is.na(f_matches))
+  r_matches = stringr::str_match(files_cleaned, "REV")
+  r_indices = which(!is.na(r_matches))
   
   # ONLY keep files that match either FWD or REV suffix
-  keep <- c(f_indices, r_indices)
-  files_cleaned <- files_cleaned[keep]
+  keep = c(f_indices, r_indices)
+  files_cleaned = files_cleaned[keep]
   
   # Remove the suffixes to create a groupname
-  files_cleaned <- gsub("_FWD.*", "", files_cleaned)
-  files_cleaned <- gsub("_REV.*", "", files_cleaned)
+  files_cleaned = gsub("_FWD.*", "", files_cleaned)
+  files_cleaned = gsub("_REV.*", "", files_cleaned)
   
   # Create groups
-  group_dataframe <- data.frame("file.path" = new_file_names[keep], "group" = files_cleaned)
-  groups <- unique(group_dataframe$group)
+  group_dataframe = data.frame("file.path" = new_file_names[keep], "group" = files_cleaned)
+  groups = unique(group_dataframe$group)
   
   return(groups)
 }
@@ -644,7 +645,10 @@ load_sanger_files <- function(path = path) {
 #' Generate Sanger Contig from Forward and Reverse Reads
 #'
 #' Creates a consensus sequence from forward and reverse Sanger reads using
-#' the sangeranalyseR package.
+#' the sangeranalyseR package. CB.Contig function generates a contig from a 
+#' fwd and reverse read using sangercontig function. FASTA consensus is output 
+#' into fasta file. Quality data for fwd and rev read are subsetted and returned 
+#' as a summary object.
 #'
 #' @param path Character. Path to directory containing .ab1 files
 #' @param contigName Character. Name for the contig
@@ -656,7 +660,7 @@ load_sanger_files <- function(path = path) {
 #' @export
 #' @examples
 #' \dontrun{
-#' contig <- create_sanger_contig(
+#' contig <- CB.Contig(
 #'   path = "path/to/files",
 #'   contigName = "Sample01",
 #'   suffixForwardRegExp = "_FWD",
@@ -665,7 +669,7 @@ load_sanger_files <- function(path = path) {
 #'   file_name_rev = "Sample01_REV.ab1"
 #' )
 #' }
-create_sanger_contig <- function(path, contigName, suffixForwardRegExp, 
+CB.Contig <- function(path, contigName, suffixForwardRegExp, 
                                  suffixReverseRegExp, file_name_fwd, file_name_rev) {
   
   if (!requireNamespace("sangeranalyseR", quietly = TRUE)) {
@@ -730,6 +734,8 @@ create_sanger_contig <- function(path, contigName, suffixForwardRegExp,
 #' Summarize Sanger Sequencing Data
 #'
 #' Runs the contig generation function and organizes quality data into a dataframe.
+#' Summarize.Sanger function runs sanger contig function and puts subsetted quality 
+#' data into a dataframe.
 #'
 #' @param group Character. Group identifier
 #' @param path Character. Path to directory containing .ab1 files
@@ -738,13 +744,13 @@ create_sanger_contig <- function(path, contigName, suffixForwardRegExp,
 #' @export
 #' @examples
 #' \dontrun{
-#' summary <- summarize_sanger(
+#' summary <- Summarize.Sanger(
 #'   group = "Sample01",
 #'   path = "path/to/files",
 #'   summarylist = list()
 #' )
 #' }
-summarize_sanger <- function(group, path = path, summarylist = summarylist) {
+Summarize.Sanger <- function(group, path = path, summarylist = summarylist) {
   
   file_name_fwd <- paste0(group, "_FWD.ab1")
   file_name_rev <- paste0(group, "_REV.ab1")
@@ -758,7 +764,7 @@ summarize_sanger <- function(group, path = path, summarylist = summarylist) {
     "trim MeanQual REV"
   )
   
-  consensus_sequence <- create_sanger_contig(
+  consensus_sequence <- CB.Contig(
     path                = path,
     contigName          = contigName,
     suffixForwardRegExp = "_FWD",
@@ -785,6 +791,8 @@ summarize_sanger <- function(group, path = path, summarylist = summarylist) {
 #' Analyze Sanger Sequences in Batch
 #'
 #' Processes all Sanger sequence files in a directory and generates quality reports.
+#' Function to run summarize.sanger on groups of files and output summary of quality 
+#' results for all samples.
 #'
 #' @param path Character. Path to directory containing .ab1 files
 #' @return Invisibly returns the summary data.frame
@@ -792,18 +800,18 @@ summarize_sanger <- function(group, path = path, summarylist = summarylist) {
 #' @examples
 #' \dontrun{
 #' # Analyze all sequences in directory
-#' results <- analyze_sanger_sequences("path/to/abi/files")
+#' results <- analyze.sequences("path/to/abi/files")
 #' }
-analyze_sanger_sequences <- function(path) {
+analyze.sequences <- function(path) {
   
   # Load the files and group into groups based on accession #
-  groups <- load_sanger_files(path) 
+  groups <- load.files(path) 
   
   # Generate an empty summary list to put the summary data in
   summarylist <- list()
   
-  # Run summarize_sanger function on all files in the path to generate fasta files
-  summarylist <- lapply(groups, FUN = summarize_sanger, path = path, summarylist = summarylist)
+  # Run Summarize.Sanger function on all files in the path to generate fasta files
+  summarylist <- lapply(groups, FUN = Summarize.Sanger, path = path, summarylist = summarylist)
   
   # Then concatenate the summary data into a single df
   summary_data <- do.call(rbind, summarylist)
@@ -830,12 +838,12 @@ analyze_sanger_sequences <- function(path) {
 #' @export
 #' @examples
 #' \dontrun{
-#' single_result <- process_single_sanger_read(
+#' single_result <- single.read(
 #'   readFileName = "path/to/Sample01_FWD.ab1",
 #'   readFeature = "Forward"
 #' )
 #' }
-process_single_sanger_read <- function(readFileName, readFeature) {
+single.read <- function(readFileName, readFeature) {
   
   if (!requireNamespace("sangeranalyseR", quietly = TRUE)) {
     stop("Package 'sangeranalyseR' is required. Install with: BiocManager::install('sangeranalyseR')")
@@ -877,7 +885,8 @@ process_single_sanger_read <- function(readFileName, readFeature) {
 
 #' Summarize Single Sanger Read
 #'
-#' Creates a summary dataframe for a single Sanger read.
+#' Creates a summary dataframe for a single Sanger read. Summarize.Single function 
+#' runs sanger contig function and puts subsetted quality data into a dataframe.
 #'
 #' @param readFileName Character. Path to the .ab1 file
 #' @param readFeature Character. Read feature identifier
@@ -886,19 +895,19 @@ process_single_sanger_read <- function(readFileName, readFeature) {
 #' @export
 #' @examples
 #' \dontrun{
-#' summary <- summarize_single_sanger(
+#' summary <- Summarize.Single(
 #'   readFileName = "path/to/Sample01_FWD.ab1",
 #'   readFeature = "Forward",
 #'   summarylist = list()
 #' )
 #' }
-summarize_single_sanger <- function(readFileName, readFeature, summarylist = summarylist) {
+Summarize.Single <- function(readFileName, readFeature, summarylist = summarylist) {
   
-  singleName <- basename(readFileName)
+  singleName = basename(readFileName)
   
-  col_names <- c("trim length", "trim MeanQual")
+  col_names = c("trim length", "trim MeanQual")
   
-  single_sequence <- process_single_sanger_read(
+  single_sequence <- single.read(
     readFileName = readFileName,
     readFeature  = readFeature
   )
@@ -920,7 +929,8 @@ summarize_single_sanger <- function(readFileName, readFeature, summarylist = sum
 
 #' Analyze Single Sanger Sequence
 #'
-#' Processes a single Sanger read and generates a quality report.
+#' Processes a single Sanger read and generates a quality report. Function to run 
+#' summarize.sanger on single reads and output summary of quality results for all samples.
 #'
 #' @param readFileName Character. Path to the .ab1 file
 #' @param readFeature Character. Read feature identifier
@@ -929,18 +939,18 @@ summarize_single_sanger <- function(readFileName, readFeature, summarylist = sum
 #' @examples
 #' \dontrun{
 #' # Analyze single forward read
-#' result <- analyze_single_sanger_sequence(
+#' result <- analyze.single.sequence(
 #'   readFileName = "path/to/Sample01_FWD.ab1",
 #'   readFeature = "Forward"
 #' )
 #' }
-analyze_single_sanger_sequence <- function(readFileName, readFeature) {
+analyze.single.sequence <- function(readFileName, readFeature) {
   
   # Generate an empty summary list to put the summary data in
-  summarylist <- list()
+  summarylist = list()
   
-  # Run summarize function to generate fasta file
-  summarylist <- summarize_single_sanger(
+  # Run Summarize.Single function on all files in the path to generate fasta files
+  summarylist <- Summarize.Single(
     readFileName = readFileName, 
     readFeature  = readFeature, 
     summarylist  = summarylist
@@ -964,4 +974,238 @@ analyze_single_sanger_sequence <- function(readFileName, readFeature) {
   message("Analysis complete! Results saved to: ", resultpath)
   
   invisible(summary_data)
+}
+
+
+# --- BLAST Functions for 16S and ITS Database Searches ---
+
+#' Edit FASTA File to Remove Spaces
+#'
+#' Removes spaces from FASTA file headers and replaces them with underscores.
+#' This is necessary for proper BLAST processing.
+#'
+#' @param x Character. Path to FASTA file
+#' @return NULL. File is modified in place
+#' @export
+#' @examples
+#' \dontrun{
+#' edit.fasta("path/to/sequences.fasta")
+#' }
+edit.fasta <- function(x) {
+  
+  if (!requireNamespace("seqinr", quietly = TRUE)) {
+    stop("Package 'seqinr' is required. Install with: install.packages('seqinr')")
+  }
+  
+  fasta <- seqinr::read.fasta(x, whole.header = TRUE, as.string = TRUE)
+  noSpace <- lapply(names(fasta), function(y) gsub('\\s+', "_", y))
+  seqinr::write.fasta(sequences = fasta, names = noSpace, file.out = x)
+}
+
+#' Run Local BLAST Search
+#'
+#' Executes a local BLAST search using blastn command and returns results as a tibble.
+#' Requires NCBI BLAST+ to be installed and accessible in the system PATH.
+#'
+#' @param x Character. Path to query FASTA file
+#' @param blastn Character. Path to blastn executable (default: "blastn")
+#' @param blast_db Character. Path to BLAST database
+#' @param input Character. Input file path (default: x)
+#' @param evalue Numeric. E-value threshold (default: 0.05)
+#' @param format Character. Output format specification
+#' @param max_target_seqs Integer. Maximum number of aligned sequences to keep (default: 100)
+#' @param gapopen Integer. Cost to open a gap (default: 0)
+#' @param word_size Integer. Word size for wordfinder algorithm (default: 28)
+#' @param qcov_hsp_perc Numeric. Minimum query coverage per HSP (default: 90)
+#' @return Tibble containing BLAST results
+#' @export
+#' @examples
+#' \dontrun{
+#' blast_results <- Blast.CB(
+#'   x = "sequences.fasta",
+#'   blast_db = "path/to/16S_ribosomal_RNA"
+#' )
+#' }
+Blast.CB <- function(x, 
+                     blastn = "blastn",
+                     blast_db = blast_db,
+                     input = x,
+                     evalue = 0.05,
+                     format = '"6 sscinames pident length qcovhsp mismatch gapopen qstart qend sstart send evalue bitscore"',
+                     max_target_seqs = 100,
+                     gapopen = 0,
+                     word_size = 28,
+                     qcov_hsp_perc = 90) {
+  
+  if (!requireNamespace("dplyr", quietly = TRUE)) {
+    stop("Package 'dplyr' is required. Install with: install.packages('dplyr')")
+  }
+  
+  if (!requireNamespace("tidyr", quietly = TRUE)) {
+    stop("Package 'tidyr' is required. Install with: install.packages('tidyr')")
+  }
+  
+  colnames <- c("Name",
+                "pident",
+                "length",
+                "query_coverage",
+                "mismatch",
+                "gapopen",
+                "qstart",
+                "qend",
+                "sstart",
+                "send",
+                "evalue",
+                "bitscore")
+  
+  blast_out <- system2(
+    command = blastn, 
+    args = c("-db", blast_db, 
+             "-query", input, 
+             "-outfmt", format, 
+             "-evalue", evalue, 
+             "-gapopen", gapopen,
+             "-max_target_seqs", max_target_seqs,
+             "-word_size", word_size,
+             "-qcov_hsp_perc", qcov_hsp_perc),
+    wait = TRUE,
+    stdout = TRUE
+  )
+  
+  blast_out <- dplyr::as_tibble(blast_out)
+  blast_out <- tidyr::separate(blast_out, col = value, into = colnames, sep = "\t", convert = TRUE)
+  
+  return(blast_out)
+}
+
+#' BLAST Single FASTA File
+#'
+#' Processes a single FASTA file: removes spaces from headers, runs BLAST,
+#' and saves results to CSV.
+#'
+#' @param file_name Character. Path to FASTA file
+#' @param blast_db Character. Path to BLAST database
+#' @param DBname Character. Database name for output file naming
+#' @return NULL. Results are saved to CSV file
+#' @export
+#' @examples
+#' \dontrun{
+#' Blast.all(
+#'   file_name = "sample_16S.fasta",
+#'   blast_db = "path/to/16S_ribosomal_RNA",
+#'   DBname = "16S"
+#' )
+#' }
+Blast.all <- function(file_name, blast_db, DBname) {
+  
+  name = basename(file_name)
+  DB = DBname
+  
+  edit.fasta(file_name)
+  Blast_output <- Blast.CB(file_name, blast_db = blast_db) 
+  
+  # Create output directory if it doesn't exist
+  if (!dir.exists("../Results/")) {
+    dir.create("../Results/", recursive = TRUE)
+  }
+  
+  mypath <- file.path("../Results/", paste0("Result_", DB, "_", name, ".csv"))
+  write.csv(Blast_output, file = mypath, row.names = FALSE)
+  
+  message("BLAST results saved to: ", mypath)
+}
+
+#' BLAST Multiple Files Against 16S and ITS Databases
+#'
+#' Processes all FASTA files in a directory, automatically detecting whether
+#' they contain 16S or ITS sequences based on filename, and BLASTs against
+#' the appropriate database.
+#'
+#' @param Blastpath Character. Path to directory containing FASTA files
+#' @param blast16Sdb Character. Path to 16S ribosomal RNA BLAST database
+#' @param blastITSdb Character. Path to ITS RefSeq Fungi BLAST database
+#' @param DBname Character. Database name for output file naming
+#' @return NULL. Results are saved to CSV files
+#' @export
+#' @examples
+#' \dontrun{
+#' # Set BLAST environment (do this once per session)
+#' Sys.setenv(PATH = paste(Sys.getenv("PATH"), 
+#'                         "path/to/ncbi-blast/bin", 
+#'                         sep = .Platform$path.sep))
+#' Sys.setenv(BLASTDB = "path/to/ncbi-blast/db")
+#' 
+#' # BLAST all files
+#' Blast.Files(
+#'   Blastpath = "path/to/fasta/files",
+#'   blast16Sdb = "path/to/db/16S_ribosomal_RNA",
+#'   blastITSdb = "path/to/db/ITS_RefSeq_Fungi",
+#'   DBname = "MyProject"
+#' )
+#' }
+Blast.Files <- function(Blastpath, 
+                        blast16Sdb = "../ncbi-blast-2.13.0+/db/16S_ribosomal_RNA", 
+                        blastITSdb = "../ncbi-blast-2.13.0+/db/ITS_RefSeq_Fungi", 
+                        DBname = DBname) {
+  
+  if (!requireNamespace("stringr", quietly = TRUE)) {
+    stop("Package 'stringr' is required. Install with: install.packages('stringr')")
+  }
+  
+  file_names <- dir(Blastpath, pattern = ".fa|.fasta", full.names = TRUE)
+  
+  message("Generating 16S sequence list")
+  
+  matches_16S = stringr::str_match(file_names, "16S")
+  indices_16S = which(!is.na(matches_16S))
+  file_names_16S = file_names[indices_16S]
+  
+  if (length(file_names_16S) > 0) {
+    message("BLASTing ", length(file_names_16S), " 16S sequences")
+    lapply(file_names_16S, FUN = Blast.all, blast_db = blast16Sdb, DBname = DBname)
+  } else {
+    message("No 16S sequences found")
+  }
+  
+  message("Generating ITS sequence list")
+  
+  matches_ITS = stringr::str_match(file_names, "ITS")
+  indices_ITS = which(!is.na(matches_ITS))
+  file_names_ITS = file_names[indices_ITS]
+  
+  if (length(file_names_ITS) > 0) {
+    message("BLASTing ", length(file_names_ITS), " ITS sequences")
+    lapply(file_names_ITS, FUN = Blast.all, blast_db = blastITSdb, DBname = DBname)
+  } else {
+    message("No ITS sequences found")
+  }
+  
+  message("BLAST analysis complete!")
+}
+
+#' Set BLAST Environment Variables
+#'
+#' Helper function to set up BLAST+ environment variables for the current R session.
+#' Call this before using any BLAST functions.
+#'
+#' @param blast_path Character. Path to NCBI BLAST+ installation directory
+#' @return NULL. Environment variables are set
+#' @export
+#' @examples
+#' \dontrun{
+#' setup_blast_env("path/to/ncbi-blast-2.13.0+")
+#' }
+setup_blast_env <- function(blast_path = "../ncbi-blast-2.13.0+") {
+  
+  bin_path <- file.path(blast_path, "bin")
+  db_path <- file.path(blast_path, "db")
+  
+  Sys.setenv(PATH = paste(Sys.getenv("PATH"), bin_path, sep = .Platform$path.sep))
+  Sys.setenv(PATH = paste(Sys.getenv("PATH"), db_path, sep = .Platform$path.sep))
+  Sys.setenv(BLASTDB = db_path)
+  
+  message("BLAST environment configured:")
+  message("  Binary path: ", bin_path)
+  message("  Database path: ", db_path)
+  message("  BLASTDB: ", Sys.getenv("BLASTDB"))
 }
