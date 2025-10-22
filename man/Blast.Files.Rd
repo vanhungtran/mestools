@@ -8,7 +8,7 @@ Blast.Files(
   Blastpath,
   blast16Sdb = "../ncbi-blast-2.13.0+/db/16S_ribosomal_RNA",
   blastITSdb = "../ncbi-blast-2.13.0+/db/ITS_RefSeq_Fungi",
-  DBname = DBname
+  DBname = "Analysis"
 )
 }
 \arguments{

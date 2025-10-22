@@ -608,6 +608,15 @@ print.primer_order <- function(x, ...) {
 #' }
 load.files <- function(path = path) {
   
+  # Input validation
+  if (missing(path) || is.null(path) || path == "") {
+    stop("Please provide a valid path to the directory containing .ab1 files")
+  }
+  
+  if (!dir.exists(path)) {
+    stop("Directory does not exist: ", path)
+  }
+  
   if (!requireNamespace("stringr", quietly = TRUE)) {
     stop("Package 'stringr' is required. Install with: install.packages('stringr')")
   }
@@ -615,29 +624,53 @@ load.files <- function(path = path) {
   # Get the file names and the list of file names you want to replace them with
   # Assumes file names are in the following convention: YYYY_MM_DD_16S_ACC#_FWD_WELL_DATE_STAMP.ab1
   old_file_names <- dir(path, pattern = ".ab1", full.names = TRUE)
+  
+  if (length(old_file_names) == 0) {
+    stop("No .ab1 files found in directory: ", path)
+  }
+  
+  message("Found ", length(old_file_names), " .ab1 files")
+  
   new_file_names <- gsub("FWD_\\w+\\d+_\\d+_\\d+.*", "FWD.ab1", old_file_names)
   new_file_names <- gsub("REV_\\w+\\d+_\\d+_\\d+.*", "REV.ab1", new_file_names)
   
-  file.rename(from = old_file_names, to = new_file_names)
+  # Only rename if names have changed
+  files_to_rename <- old_file_names != new_file_names
+  if (any(files_to_rename)) {
+    rename_result <- file.rename(from = old_file_names[files_to_rename], 
+                                  to = new_file_names[files_to_rename])
+    if (!all(rename_result)) {
+      warning("Some files could not be renamed")
+    }
+  }
   
   # Index forward and reverse reads
-  files_cleaned = new_file_names
-  f_matches = stringr::str_match(files_cleaned, "FWD")
-  f_indices = which(!is.na(f_matches))
-  r_matches = stringr::str_match(files_cleaned, "REV")
-  r_indices = which(!is.na(r_matches))
+  files_cleaned <- new_file_names
+  f_matches <- stringr::str_match(files_cleaned, "FWD")
+  f_indices <- which(!is.na(f_matches))
+  r_matches <- stringr::str_match(files_cleaned, "REV")
+  r_indices <- which(!is.na(r_matches))
   
   # ONLY keep files that match either FWD or REV suffix
-  keep = c(f_indices, r_indices)
-  files_cleaned = files_cleaned[keep]
+  keep <- c(f_indices, r_indices)
+  
+  if (length(keep) == 0) {
+    stop("No files with 'FWD' or 'REV' suffix found in directory: ", path)
+  }
+  
+  files_cleaned <- files_cleaned[keep]
   
   # Remove the suffixes to create a groupname
-  files_cleaned = gsub("_FWD.*", "", files_cleaned)
-  files_cleaned = gsub("_REV.*", "", files_cleaned)
+  files_cleaned <- gsub("_FWD.*", "", files_cleaned)
+  files_cleaned <- gsub("_REV.*", "", files_cleaned)
   
   # Create groups
-  group_dataframe = data.frame("file.path" = new_file_names[keep], "group" = files_cleaned)
-  groups = unique(group_dataframe$group)
+  group_dataframe <- data.frame("file.path" = new_file_names[keep], 
+                                "group" = files_cleaned,
+                                stringsAsFactors = FALSE)
+  groups <- unique(group_dataframe$group)
+  
+  message("Created ", length(groups), " groups from ", length(keep), " files")
   
   return(groups)
 }
@@ -670,50 +703,87 @@ load.files <- function(path = path) {
 #' )
 #' }
 CB.Contig <- function(path, contigName, suffixForwardRegExp, 
-                                 suffixReverseRegExp, file_name_fwd, file_name_rev) {
+                      suffixReverseRegExp, file_name_fwd, file_name_rev) {
+  
+  # Input validation
+  if (missing(path) || !dir.exists(path)) {
+    stop("Please provide a valid path to the directory containing .ab1 files")
+  }
+  
+  if (missing(contigName) || is.null(contigName) || contigName == "") {
+    stop("Please provide a valid contig name")
+  }
   
   if (!requireNamespace("sangeranalyseR", quietly = TRUE)) {
     stop("Package 'sangeranalyseR' is required. Install with: BiocManager::install('sangeranalyseR')")
   }
   
-  message("Reading forward and reverse reads and generating contig")
+  if (!requireNamespace("Biostrings", quietly = TRUE)) {
+    stop("Package 'Biostrings' is required. Install with: BiocManager::install('Biostrings')")
+  }
   
-  sangerContig <- sangeranalyseR::SangerContig(
-    inputSource           = "ABIF",
-    ABIF_Directory        = path,
-    contigName            = contigName,
-    REGEX_SuffixForward   = suffixForwardRegExp,
-    REGEX_SuffixReverse   = suffixReverseRegExp,
-    TrimmingMethod        = "M2",
-    M1TrimmingCutoff      = NULL,
-    M2CutoffQualityScore  = 40,
-    M2SlidingWindowSize   = 10,
-    minReadLength         = 0,
-    signalRatioCutoff     = 0.33,
-    showTrimmed           = TRUE,
-    geneticCode           = sangeranalyseR::GENETIC_CODE
-  )
+  if (!requireNamespace("DECIPHER", quietly = TRUE)) {
+    stop("Package 'DECIPHER' is required. Install with: BiocManager::install('DECIPHER')")
+  }
+  
+  message("Reading forward and reverse reads and generating contig for: ", contigName)
+  
+  # Wrap in tryCatch for better error handling
+  sangerContig <- tryCatch({
+    sangeranalyseR::SangerContig(
+      inputSource           = "ABIF",
+      ABIF_Directory        = path,
+      contigName            = contigName,
+      REGEX_SuffixForward   = suffixForwardRegExp,
+      REGEX_SuffixReverse   = suffixReverseRegExp,
+      TrimmingMethod        = "M2",
+      M1TrimmingCutoff      = NULL,
+      M2CutoffQualityScore  = 40,
+      M2SlidingWindowSize   = 10,
+      minReadLength         = 0,
+      signalRatioCutoff     = 0.33,
+      showTrimmed           = TRUE,
+      geneticCode           = sangeranalyseR::GENETIC_CODE
+    )
+  }, error = function(e) {
+    stop("Failed to create contig for ", contigName, ": ", conditionMessage(e))
+  })
   
   message("Exporting fasta sequence")
   
   # Create output directories if they don't exist
-  if (!dir.exists("../Fasta_Sequences/")) {
-    dir.create("../Fasta_Sequences/", recursive = TRUE)
+  fasta_dir <- "../Fasta_Sequences/"
+  results_dir <- "../Results/"
+  
+  if (!dir.exists(fasta_dir)) {
+    dir.create(fasta_dir, recursive = TRUE)
+    message("Created directory: ", fasta_dir)
   }
-  if (!dir.exists("../Results/")) {
-    dir.create("../Results/", recursive = TRUE)
+  if (!dir.exists(results_dir)) {
+    dir.create(results_dir, recursive = TRUE)
+    message("Created directory: ", results_dir)
   }
   
-  sangeranalyseR::writeFasta(sangerContig, outputDir = "../Fasta_Sequences/", selection = "contig")
+  tryCatch({
+    sangeranalyseR::writeFasta(sangerContig, outputDir = fasta_dir, selection = "contig")
+    message("FASTA file saved to: ", fasta_dir)
+  }, error = function(e) {
+    warning("Failed to write FASTA file: ", conditionMessage(e))
+  })
   
   message("Exporting contig alignment")
   
-  alignment <- sangerContig@alignment
-  alignment <- Biostrings::DNAMultipleAlignment(alignment)
-  filepath <- file.path("../Results", paste0("contigAlign_", contigName, ".txt"))
-  DECIPHER::WriteAlignments(alignment, filepath)
+  tryCatch({
+    alignment <- sangerContig@alignment
+    alignment <- Biostrings::DNAMultipleAlignment(alignment)
+    filepath <- file.path(results_dir, paste0("contigAlign_", contigName, ".txt"))
+    DECIPHER::WriteAlignments(alignment, filepath)
+    message("Alignment saved to: ", filepath)
+  }, error = function(e) {
+    warning("Failed to write alignment file: ", conditionMessage(e))
+  })
   
-  message("Subsetting quality data")
+  message("Extracting quality data")
   
   QualityFWD <- sangerContig@forwardReadList[[file_name_fwd]]@QualityReport
   QualityREV <- sangerContig@reverseReadList[[file_name_rev]]@QualityReport
@@ -727,6 +797,8 @@ CB.Contig <- function(path, contigName, suffixForwardRegExp,
     "trimmed.Mean.qual.FWD"  = QualityFWD@trimmedMeanQualityScore,
     "trimmed.Mean.qual.REV"  = QualityREV@trimmedMeanQualityScore
   )
+  
+  message("Contig processing complete for: ", contigName)
   
   return(list("summary" = read.summary, "contig" = sangerContig))
 }
@@ -752,6 +824,11 @@ CB.Contig <- function(path, contigName, suffixForwardRegExp,
 #' }
 Summarize.Sanger <- function(group, path = path, summarylist = summarylist) {
   
+  # Input validation
+  if (missing(group) || is.null(group)) {
+    stop("Please provide a valid group identifier")
+  }
+  
   file_name_fwd <- paste0(group, "_FWD.ab1")
   file_name_rev <- paste0(group, "_REV.ab1")
   contigName <- basename(group)
@@ -764,20 +841,31 @@ Summarize.Sanger <- function(group, path = path, summarylist = summarylist) {
     "trim MeanQual REV"
   )
   
-  consensus_sequence <- CB.Contig(
-    path                = path,
-    contigName          = contigName,
-    suffixForwardRegExp = "_FWD",
-    suffixReverseRegExp = "_REV",
-    file_name_fwd       = file_name_fwd,
-    file_name_rev       = file_name_rev
-  )
+  message("Processing group: ", contigName)
+  
+  consensus_sequence <- tryCatch({
+    CB.Contig(
+      path                = path,
+      contigName          = contigName,
+      suffixForwardRegExp = "_FWD",
+      suffixReverseRegExp = "_REV",
+      file_name_fwd       = file_name_fwd,
+      file_name_rev       = file_name_rev
+    )
+  }, error = function(e) {
+    warning("Failed to process group ", contigName, ": ", conditionMessage(e))
+    return(NULL)
+  })
+  
+  if (is.null(consensus_sequence)) {
+    return(summarylist)
+  }
   
   # Separate summary data from the consensus sequence object 
   # Turn it into a dataframe with row names from above
   summary <- consensus_sequence$summary
   summary <- t(summary)
-  summary <- as.data.frame(summary)
+  summary <- as.data.frame(summary, stringsAsFactors = FALSE)
   colnames(summary) <- col_names
   
   # Add a column called sample which is equal to the contig name
@@ -804,14 +892,33 @@ Summarize.Sanger <- function(group, path = path, summarylist = summarylist) {
 #' }
 analyze.sequences <- function(path) {
   
+  # Input validation
+  if (missing(path) || !dir.exists(path)) {
+    stop("Please provide a valid path to the directory containing .ab1 files")
+  }
+  
+  message("Starting batch analysis of Sanger sequences...")
+  
   # Load the files and group into groups based on accession #
   groups <- load.files(path) 
+  
+  if (length(groups) == 0) {
+    stop("No valid groups found in directory: ", path)
+  }
   
   # Generate an empty summary list to put the summary data in
   summarylist <- list()
   
   # Run Summarize.Sanger function on all files in the path to generate fasta files
+  message("Processing ", length(groups), " groups...")
   summarylist <- lapply(groups, FUN = Summarize.Sanger, path = path, summarylist = summarylist)
+  
+  # Remove NULL entries (failed processing)
+  summarylist <- Filter(Negate(is.null), summarylist)
+  
+  if (length(summarylist) == 0) {
+    stop("No sequences were successfully processed")
+  }
   
   # Then concatenate the summary data into a single df
   summary_data <- do.call(rbind, summarylist)
@@ -820,10 +927,16 @@ analyze.sequences <- function(path) {
   summary_data <- summary_data[, c(6, 1:5)]
   
   # Export the summary data into a csv in the Results folder
-  resultpath <- file.path("../Results", paste0("Quality_Report_", basename(path), ".csv"))
+  results_dir <- "../Results/"
+  if (!dir.exists(results_dir)) {
+    dir.create(results_dir, recursive = TRUE)
+  }
+  
+  resultpath <- file.path(results_dir, paste0("Quality_Report_", basename(path), ".csv"))
   write.csv(summary_data, file = resultpath, row.names = FALSE)
   
   message("Analysis complete! Results saved to: ", resultpath)
+  message("Successfully processed ", nrow(summary_data), " sequences")
   
   invisible(summary_data)
 }
@@ -845,31 +958,53 @@ analyze.sequences <- function(path) {
 #' }
 single.read <- function(readFileName, readFeature) {
   
+  # Input validation
+  if (missing(readFileName) || !file.exists(readFileName)) {
+    stop("Please provide a valid path to an .ab1 file")
+  }
+  
+  if (missing(readFeature) || is.null(readFeature)) {
+    stop("Please provide a valid read feature (e.g., 'Forward' or 'Reverse')")
+  }
+  
   if (!requireNamespace("sangeranalyseR", quietly = TRUE)) {
     stop("Package 'sangeranalyseR' is required. Install with: BiocManager::install('sangeranalyseR')")
   }
   
-  sangerRead <- sangeranalyseR::SangerRead(
-    inputSource          = "ABIF",
-    readFeature          = readFeature,
-    readFileName         = readFileName,
-    geneticCode          = sangeranalyseR::GENETIC_CODE,
-    TrimmingMethod       = "M2",
-    M1TrimmingCutoff     = NULL,
-    M2CutoffQualityScore = 15,
-    M2SlidingWindowSize  = 10, 
-    baseNumPerRow        = 100,
-    heightPerRow         = 200,
-    signalRatioCutoff    = 0.33,
-    showTrimmed          = TRUE
-  )
+  message("Processing single read: ", basename(readFileName))
+  
+  sangerRead <- tryCatch({
+    sangeranalyseR::SangerRead(
+      inputSource          = "ABIF",
+      readFeature          = readFeature,
+      readFileName         = readFileName,
+      geneticCode          = sangeranalyseR::GENETIC_CODE,
+      TrimmingMethod       = "M2",
+      M1TrimmingCutoff     = NULL,
+      M2CutoffQualityScore = 15,
+      M2SlidingWindowSize  = 10, 
+      baseNumPerRow        = 100,
+      heightPerRow         = 200,
+      signalRatioCutoff    = 0.33,
+      showTrimmed          = TRUE
+    )
+  }, error = function(e) {
+    stop("Failed to process read ", basename(readFileName), ": ", conditionMessage(e))
+  })
   
   # Create output directory if it doesn't exist
-  if (!dir.exists("../Fasta_Sequences/")) {
-    dir.create("../Fasta_Sequences/", recursive = TRUE)
+  fasta_dir <- "../Fasta_Sequences/"
+  if (!dir.exists(fasta_dir)) {
+    dir.create(fasta_dir, recursive = TRUE)
+    message("Created directory: ", fasta_dir)
   }
   
-  sangeranalyseR::writeFasta(sangerRead, outputDir = "../Fasta_Sequences", compress = FALSE)
+  tryCatch({
+    sangeranalyseR::writeFasta(sangerRead, outputDir = fasta_dir, compress = FALSE)
+    message("FASTA file saved to: ", fasta_dir)
+  }, error = function(e) {
+    warning("Failed to write FASTA file: ", conditionMessage(e))
+  })
   
   Quality <- sangerRead@QualityReport
   
@@ -879,6 +1014,8 @@ single.read <- function(readFileName, readFeature) {
     "trimmed.seq.length" = Quality@trimmedSeqLength,
     "trimmed.Mean.qual"  = Quality@trimmedMeanQualityScore
   )
+  
+  message("Read processing complete")
   
   return(list("summary" = read.summary, "Read" = sangerRead))
 }
@@ -903,20 +1040,36 @@ single.read <- function(readFileName, readFeature) {
 #' }
 Summarize.Single <- function(readFileName, readFeature, summarylist = summarylist) {
   
-  singleName = basename(readFileName)
+  # Input validation
+  if (missing(readFileName) || !file.exists(readFileName)) {
+    stop("Please provide a valid path to an .ab1 file")
+  }
   
-  col_names = c("trim length", "trim MeanQual")
+  singleName <- basename(readFileName)
   
-  single_sequence <- single.read(
-    readFileName = readFileName,
-    readFeature  = readFeature
-  )
+  col_names <- c("trim length", "trim MeanQual")
+  
+  message("Summarizing single read: ", singleName)
+  
+  single_sequence <- tryCatch({
+    single.read(
+      readFileName = readFileName,
+      readFeature  = readFeature
+    )
+  }, error = function(e) {
+    warning("Failed to process ", singleName, ": ", conditionMessage(e))
+    return(NULL)
+  })
+  
+  if (is.null(single_sequence)) {
+    return(summarylist)
+  }
   
   # Separate summary data from the read sequence object 
   # Turn it into a dataframe with row names from above
   summary <- single_sequence$summary
   summary <- t(summary)
-  summary <- as.data.frame(summary)
+  summary <- as.data.frame(summary, stringsAsFactors = FALSE)
   colnames(summary) <- col_names
   
   # Add a column called sample which is equal to the read name
@@ -946,15 +1099,26 @@ Summarize.Single <- function(readFileName, readFeature, summarylist = summarylis
 #' }
 analyze.single.sequence <- function(readFileName, readFeature) {
   
-  # Generate an empty summary list to put the summary data in
-  summarylist = list()
+  # Input validation
+  if (missing(readFileName) || !file.exists(readFileName)) {
+    stop("Please provide a valid path to an .ab1 file")
+  }
   
-  # Run Summarize.Single function on all files in the path to generate fasta files
+  message("Starting single sequence analysis...")
+  
+  # Generate an empty summary list to put the summary data in
+  summarylist <- list()
+  
+  # Run Summarize.Single function to generate fasta file
   summarylist <- Summarize.Single(
     readFileName = readFileName, 
     readFeature  = readFeature, 
     summarylist  = summarylist
   )
+  
+  if (length(summarylist) == 0) {
+    stop("Failed to process the sequence")
+  }
   
   # Extract the summary data
   summary_data <- summarylist[[1]]
@@ -963,12 +1127,13 @@ analyze.single.sequence <- function(readFileName, readFeature) {
   summary_data <- summary_data[, c(3, 1, 2)]
   
   # Create output directory if it doesn't exist
-  if (!dir.exists("../Results/")) {
-    dir.create("../Results/", recursive = TRUE)
+  results_dir <- "../Results/"
+  if (!dir.exists(results_dir)) {
+    dir.create(results_dir, recursive = TRUE)
   }
   
   # Export the summary data into a csv in the Results folder
-  resultpath <- file.path("../Results", paste0("Quality_Report_", basename(readFileName), ".csv"))
+  resultpath <- file.path(results_dir, paste0("Quality_Report_", basename(readFileName), ".csv"))
   write.csv(summary_data, file = resultpath, row.names = FALSE)
   
   message("Analysis complete! Results saved to: ", resultpath)
@@ -993,13 +1158,37 @@ analyze.single.sequence <- function(readFileName, readFeature) {
 #' }
 edit.fasta <- function(x) {
   
+  # Input validation
+  if (missing(x) || !file.exists(x)) {
+    stop("Please provide a valid path to a FASTA file")
+  }
+  
   if (!requireNamespace("seqinr", quietly = TRUE)) {
     stop("Package 'seqinr' is required. Install with: install.packages('seqinr')")
   }
   
-  fasta <- seqinr::read.fasta(x, whole.header = TRUE, as.string = TRUE)
-  noSpace <- lapply(names(fasta), function(y) gsub('\\s+', "_", y))
-  seqinr::write.fasta(sequences = fasta, names = noSpace, file.out = x)
+  message("Editing FASTA file: ", basename(x))
+  
+  tryCatch({
+    fasta <- seqinr::read.fasta(x, whole.header = TRUE, as.string = TRUE)
+    
+    if (length(fasta) == 0) {
+      warning("No sequences found in FASTA file: ", x)
+      return(invisible(NULL))
+    }
+    
+    # Replace spaces with underscores in headers
+    noSpace <- lapply(names(fasta), function(y) gsub('\\s+', "_", y))
+    
+    seqinr::write.fasta(sequences = fasta, names = noSpace, file.out = x)
+    
+    message("Successfully edited ", length(fasta), " sequences in ", basename(x))
+    
+  }, error = function(e) {
+    stop("Failed to edit FASTA file: ", conditionMessage(e))
+  })
+  
+  invisible(NULL)
 }
 
 #' Run Local BLAST Search
@@ -1037,6 +1226,15 @@ Blast.CB <- function(x,
                      word_size = 28,
                      qcov_hsp_perc = 90) {
   
+  # Input validation
+  if (missing(x) || !file.exists(x)) {
+    stop("Please provide a valid path to a query FASTA file")
+  }
+  
+  if (missing(blast_db)) {
+    stop("Please provide a valid path to a BLAST database")
+  }
+  
   if (!requireNamespace("dplyr", quietly = TRUE)) {
     stop("Package 'dplyr' is required. Install with: install.packages('dplyr')")
   }
@@ -1045,35 +1243,66 @@ Blast.CB <- function(x,
     stop("Package 'tidyr' is required. Install with: install.packages('tidyr')")
   }
   
-  colnames <- c("Name",
-                "pident",
-                "length",
-                "query_coverage",
-                "mismatch",
-                "gapopen",
-                "qstart",
-                "qend",
-                "sstart",
-                "send",
-                "evalue",
-                "bitscore")
+  # Check if blastn is available
+  blastn_check <- suppressWarnings(system2("which", blastn, stdout = TRUE, stderr = TRUE))
+  if (length(blastn_check) == 0 || attr(blastn_check, "status") == 1) {
+    stop("blastn command not found. Please install NCBI BLAST+ and set up the environment with setup_blast_env()")
+  }
   
-  blast_out <- system2(
-    command = blastn, 
-    args = c("-db", blast_db, 
-             "-query", input, 
-             "-outfmt", format, 
-             "-evalue", evalue, 
-             "-gapopen", gapopen,
-             "-max_target_seqs", max_target_seqs,
-             "-word_size", word_size,
-             "-qcov_hsp_perc", qcov_hsp_perc),
-    wait = TRUE,
-    stdout = TRUE
-  )
+  message("Running BLAST search for: ", basename(x))
+  message("  Database: ", blast_db)
+  message("  E-value threshold: ", evalue)
   
-  blast_out <- dplyr::as_tibble(blast_out)
-  blast_out <- tidyr::separate(blast_out, col = value, into = colnames, sep = "\t", convert = TRUE)
+  col_names <- c("Name",
+                 "pident",
+                 "length",
+                 "query_coverage",
+                 "mismatch",
+                 "gapopen",
+                 "qstart",
+                 "qend",
+                 "sstart",
+                 "send",
+                 "evalue",
+                 "bitscore")
+  
+  blast_out <- tryCatch({
+    system2(
+      command = blastn, 
+      args = c("-db", blast_db, 
+               "-query", input, 
+               "-outfmt", format, 
+               "-evalue", evalue, 
+               "-gapopen", gapopen,
+               "-max_target_seqs", max_target_seqs,
+               "-word_size", word_size,
+               "-qcov_hsp_perc", qcov_hsp_perc),
+      wait = TRUE,
+      stdout = TRUE,
+      stderr = TRUE
+    )
+  }, error = function(e) {
+    stop("BLAST command failed: ", conditionMessage(e))
+  })
+  
+  # Check if BLAST returned an error
+  if (!is.null(attr(blast_out, "status")) && attr(blast_out, "status") != 0) {
+    stop("BLAST search failed. Error: ", paste(blast_out, collapse = "\n"))
+  }
+  
+  if (length(blast_out) == 0) {
+    warning("No BLAST hits found for ", basename(x))
+    return(dplyr::tibble())
+  }
+  
+  message("  Found ", length(blast_out), " BLAST hits")
+  
+  # Convert to tibble and parse
+  blast_out <- dplyr::tibble(value = blast_out)
+  blast_out <- tidyr::separate(blast_out, col = "value", into = col_names, 
+                                sep = "\t", convert = TRUE, fill = "warn")
+  
+  message("BLAST search complete")
   
   return(blast_out)
 }
@@ -1098,21 +1327,52 @@ Blast.CB <- function(x,
 #' }
 Blast.all <- function(file_name, blast_db, DBname) {
   
-  name = basename(file_name)
-  DB = DBname
-  
-  edit.fasta(file_name)
-  Blast_output <- Blast.CB(file_name, blast_db = blast_db) 
-  
-  # Create output directory if it doesn't exist
-  if (!dir.exists("../Results/")) {
-    dir.create("../Results/", recursive = TRUE)
+  # Input validation
+  if (missing(file_name) || !file.exists(file_name)) {
+    stop("Please provide a valid path to a FASTA file")
   }
   
-  mypath <- file.path("../Results/", paste0("Result_", DB, "_", name, ".csv"))
+  if (missing(blast_db)) {
+    stop("Please provide a valid path to a BLAST database")
+  }
+  
+  if (missing(DBname) || is.null(DBname)) {
+    DBname <- "BLAST"
+  }
+  
+  name <- basename(file_name)
+  
+  message("Processing: ", name)
+  
+  # Edit the FASTA file to remove spaces
+  tryCatch({
+    edit.fasta(file_name)
+  }, error = function(e) {
+    warning("Failed to edit FASTA file: ", conditionMessage(e))
+  })
+  
+  # Run BLAST
+  Blast_output <- tryCatch({
+    Blast.CB(file_name, blast_db = blast_db)
+  }, error = function(e) {
+    stop("BLAST failed for ", name, ": ", conditionMessage(e))
+  })
+  
+  # Create output directory if it doesn't exist
+  results_dir <- "../Results/"
+  if (!dir.exists(results_dir)) {
+    dir.create(results_dir, recursive = TRUE)
+    message("Created directory: ", results_dir)
+  }
+  
+  # Save results
+  mypath <- file.path(results_dir, paste0("Result_", DBname, "_", name, ".csv"))
   write.csv(Blast_output, file = mypath, row.names = FALSE)
   
   message("BLAST results saved to: ", mypath)
+  message("  Number of hits: ", nrow(Blast_output))
+  
+  invisible(Blast_output)
 }
 
 #' BLAST Multiple Files Against 16S and ITS Databases
@@ -1146,41 +1406,84 @@ Blast.all <- function(file_name, blast_db, DBname) {
 Blast.Files <- function(Blastpath, 
                         blast16Sdb = "../ncbi-blast-2.13.0+/db/16S_ribosomal_RNA", 
                         blastITSdb = "../ncbi-blast-2.13.0+/db/ITS_RefSeq_Fungi", 
-                        DBname = DBname) {
+                        DBname = "Analysis") {
+  
+  # Input validation
+  if (missing(Blastpath) || !dir.exists(Blastpath)) {
+    stop("Please provide a valid path to the directory containing FASTA files")
+  }
   
   if (!requireNamespace("stringr", quietly = TRUE)) {
     stop("Package 'stringr' is required. Install with: install.packages('stringr')")
   }
   
+  message("Starting batch BLAST analysis...")
+  message("  Directory: ", Blastpath)
+  
+  # Find FASTA files
   file_names <- dir(Blastpath, pattern = ".fa|.fasta", full.names = TRUE)
   
-  message("Generating 16S sequence list")
+  if (length(file_names) == 0) {
+    stop("No FASTA files (.fa or .fasta) found in directory: ", Blastpath)
+  }
   
-  matches_16S = stringr::str_match(file_names, "16S")
-  indices_16S = which(!is.na(matches_16S))
-  file_names_16S = file_names[indices_16S]
+  message("  Found ", length(file_names), " FASTA files")
+  
+  # Process 16S sequences
+  message("\n=== Processing 16S Sequences ===")
+  matches_16S <- stringr::str_match(file_names, "16S")
+  indices_16S <- which(!is.na(matches_16S))
+  file_names_16S <- file_names[indices_16S]
   
   if (length(file_names_16S) > 0) {
-    message("BLASTing ", length(file_names_16S), " 16S sequences")
-    lapply(file_names_16S, FUN = Blast.all, blast_db = blast16Sdb, DBname = DBname)
+    message("Found ", length(file_names_16S), " 16S sequences")
+    message("BLASTing against database: ", blast16Sdb)
+    
+    results_16S <- lapply(file_names_16S, function(f) {
+      tryCatch({
+        Blast.all(f, blast_db = blast16Sdb, DBname = paste0(DBname, "_16S"))
+      }, error = function(e) {
+        warning("Failed to BLAST ", basename(f), ": ", conditionMessage(e))
+        return(NULL)
+      })
+    })
+    
+    success_16S <- sum(sapply(results_16S, function(x) !is.null(x)))
+    message("Successfully processed ", success_16S, " out of ", length(file_names_16S), " 16S sequences")
   } else {
-    message("No 16S sequences found")
+    message("No 16S sequences found (no files containing '16S' in filename)")
   }
   
-  message("Generating ITS sequence list")
-  
-  matches_ITS = stringr::str_match(file_names, "ITS")
-  indices_ITS = which(!is.na(matches_ITS))
-  file_names_ITS = file_names[indices_ITS]
+  # Process ITS sequences
+  message("\n=== Processing ITS Sequences ===")
+  matches_ITS <- stringr::str_match(file_names, "ITS")
+  indices_ITS <- which(!is.na(matches_ITS))
+  file_names_ITS <- file_names[indices_ITS]
   
   if (length(file_names_ITS) > 0) {
-    message("BLASTing ", length(file_names_ITS), " ITS sequences")
-    lapply(file_names_ITS, FUN = Blast.all, blast_db = blastITSdb, DBname = DBname)
+    message("Found ", length(file_names_ITS), " ITS sequences")
+    message("BLASTing against database: ", blastITSdb)
+    
+    results_ITS <- lapply(file_names_ITS, function(f) {
+      tryCatch({
+        Blast.all(f, blast_db = blastITSdb, DBname = paste0(DBname, "_ITS"))
+      }, error = function(e) {
+        warning("Failed to BLAST ", basename(f), ": ", conditionMessage(e))
+        return(NULL)
+      })
+    })
+    
+    success_ITS <- sum(sapply(results_ITS, function(x) !is.null(x)))
+    message("Successfully processed ", success_ITS, " out of ", length(file_names_ITS), " ITS sequences")
   } else {
-    message("No ITS sequences found")
+    message("No ITS sequences found (no files containing 'ITS' in filename)")
   }
   
-  message("BLAST analysis complete!")
+  message("\n=== BLAST Analysis Complete! ===")
+  message("Total files processed: ", length(file_names_16S) + length(file_names_ITS))
+  message("Results saved to: ../Results/")
+  
+  invisible(NULL)
 }
 
 #' Set BLAST Environment Variables
