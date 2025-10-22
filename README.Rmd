@@ -13,50 +13,306 @@ knitr::opts_chunk$set(
 )
 ```
 
-# mestools
+# mestools <img src="man/figures/logo.png" align="right" height="139" alt="" />
 
 <!-- badges: start -->
+[![R-CMD-check](https://github.com/vanhungtran/mestools/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/vanhungtran/mestools/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/vanhungtran/mestools/branch/main/graph/badge.svg)](https://codecov.io/gh/vanhungtran/mestools?branch=main)
+[![CRAN status](https://www.r-pkg.org/badges/version/mestools)](https://CRAN.R-project.org/package=mestools)
+[![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 <!-- badges: end -->
 
-The goal of mestools is to ...
+**mestools** is a comprehensive R package that provides utility functions for data manipulation, package development, and deployment automation. It's designed to streamline common analytical tasks and enhance developer productivity.
+
+## Features
+
+### 🔧 Data Analysis Tools
+- **Quick data summaries** with comprehensive statistics
+- **Safe file reading** with automatic format detection
+- **Batch processing** with progress reporting and error handling
+- **Random data generation** for testing and demonstrations
+
+### 🧬 Genomics & Microbiome Analysis
+- **GEO dataset downloading** - Batch download and process Gene Expression Omnibus datasets
+- **16S rRNA primer tools** - Design and evaluate primers for microbiome sequencing
+- **Primer coverage analysis** - Assess taxonomic coverage and specificity
+- **In silico PCR** - Test primer pairs against reference databases
+
+### 📦 Package Development
+- **Automated GitHub deployment** with testing and documentation
+- **Dependency checking** and installation management
+- **Repository validation** using GitHub API
+
+### 🏗️ Project Management
+- **Standardized project structure** creation
+- **Multi-source package installation** (CRAN, Bioconductor, GitHub)
+- **Development workflow automation**
 
 ## Installation
 
-<<<<<<< HEAD
-You can install the development version of mestools from [GitHub](https://github.com/) with:
+You can install the development version of mestools from [GitHub](https://github.com/vanhungtran/mestools) with:
 
-``` r
+```r
 # install.packages("pak")
 pak::pak("vanhungtran/mestools")
-=======
-You can install the development version of mestools like so:
-
-``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
->>>>>>> 41378f53f805420c0ddbaabce044e1ac702c6c97
 ```
 
-## Example
+Or using devtools:
 
-This is a basic example which shows you how to solve a common problem:
+```r
+# install.packages("devtools")
+devtools::install_github("vanhungtran/mestools")
+```
 
-```{r example}
+## Quick Start
+
+```{r quickstart, eval = FALSE}
 library(mestools)
-## basic example code
+
+# Create a project structure
+create_project_structure("my_analysis")
+
+# Generate test data
+df <- generate_random_df(1000, 8)
+
+# Get quick summary
+summary_info <- quick_summary(df)
+print(summary_info)
+
+# Check package dependencies
+check_dependencies(c("ggplot2", "dplyr", "tidyr"))
+
+# Download GEO datasets
+geo_data <- read_geo_dataset("GSE102628")
+
+# Get 16S rRNA primers
+primers <- get_16s_primers()
+v4_primers <- select_16s_primers(application = "universal", region = "V4")
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+## Key Features
 
-```{r cars}
-summary(cars)
+### 🧬 Genomics & Microbiome Analysis (NEW!)
+
+**GEO Dataset Tools:**
+- Download and process Gene Expression Omnibus (GEO) datasets
+- Batch processing of multiple datasets with error handling
+- Extract expression matrices, phenotype data, and feature annotations
+- 139 pre-curated GEO dataset IDs included
+- Automatic retry and rate limiting for reliable downloads
+
+**16S rRNA Primer Tools:**
+- Access database of validated primer pairs for all 16S regions (V1-V9)
+- Get primers optimized for specific applications (gut, soil, marine, etc.)
+- Design custom primers for your sequences
+- Evaluate primer coverage across bacterial/archaeal taxa
+- Compare multiple primer pairs side-by-side
+- Get recommendations based on sample type and sequencing platform
+
+**Supported 16S Regions:**
+- V1-V2, V1-V3, V3-V4, V4, V4-V5, V6-V8, V7-V9
+- Earth Microbiome Project standard primers included
+- Human Microbiome Project primers included
+
+## Core Functions
+
+### Data Analysis Examples
+
+```{r data-analysis, eval = FALSE}
+# Quick data summary
+data_summary <- quick_summary(mtcars)
+print(data_summary$dimensions)
+print(data_summary$missing_values)
+
+# Generate test data
+test_data <- generate_random_df(n_rows = 500, n_cols = 6, seed = 42)
+
+# Safe file reading with automatic format detection
+data <- read_file_safe("data.csv")
+text <- read_file_safe("notes.txt")
+saved_object <- read_file_safe("results.rds")
+
+# Batch processing with progress tracking
+file_list <- list("file1.csv", "file2.csv", "file3.csv")
+results <- batch_apply(file_list, read_file_safe, .progress = TRUE)
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
+### GEO Dataset Functions
 
-You can also embed plots, for example:
+Download and process Gene Expression Omnibus datasets:
 
-```{r pressure, echo = FALSE}
-plot(pressure)
+```{r geo-examples, eval = FALSE}
+# Download a single GEO dataset
+result <- read_geo_dataset("GSE102628")
+expression_matrix <- result$expression_matrix
+metadata <- result$phenotype_data
+
+# Batch download multiple datasets
+gse_list <- c("GSE102628", "GSE102641", "GSE102725")
+results <- read_multiple_geo_datasets(gse_list)
+
+# Get dataset summaries without downloading
+summary_info <- get_geo_summary(c("GSE102628", "GSE102641"))
+
+# Get predefined list of 139 datasets
+all_datasets <- get_default_gse_list()
+
+# Process all default datasets (or subset for testing)
+test_results <- process_all_geo_datasets(subset_size = 5)
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+### 16S rRNA Primer Tools
+
+Design and evaluate primers for microbiome sequencing:
+
+```{r primers-examples, eval = FALSE}
+# Get all available 16S primer pairs
+all_primers <- get_16s_primers()
+
+# Select primers for specific application and region
+gut_primers <- select_16s_primers(
+  application = "gut",
+  read_length = 250,
+  platform = "illumina"
+)
+
+# Analyze custom primer pair
+analysis <- design_custom_16s_primers(
+  forward_primer = "GTGCCAGCMGCCGCGGTAA",
+  reverse_primer = "GGACTACHVGGGTWTCTAAT"
+)
+
+# Compare multiple primer pairs
+comparison <- compare_16s_primers(c("V3-V4", "V4"))
+
+# Generate primer order sheet
+order_sheet <- generate_primer_order(region = "V4", include_adaptors = TRUE)
+```
+
+## Advanced Workflows
+
+### Microbiome Study Workflow
+
+```{r microbiome-workflow, eval = FALSE}
+# 1. Set up microbiome project
+create_project_structure("microbiome_study_2024")
+
+# 2. Get recommended primers for your sample type
+primers <- select_16s_primers(
+  application = "gut",
+  read_length = 250,
+  platform = "illumina"
+)
+
+# 3. Compare primer options
+comparison <- compare_16s_primers(c("V3-V4", "V4"))
+
+# 4. Generate order sheet for selected primers
+order_sheet <- generate_primer_order(region = "V4", include_adaptors = TRUE)
+cat(order_sheet)
+```
+
+### GEO Data Analysis Workflow
+
+```{r geo-workflow, eval = FALSE}
+# 1. Get list of relevant datasets
+gse_list <- get_default_gse_list()
+
+# 2. Download datasets
+datasets <- read_multiple_geo_datasets(
+  gse_ids = gse_list[1:5],  # Start with first 5
+  destdir = "geo_data",
+  sleep_between = 2
+)
+
+# 3. Process expression data
+for (gse_id in names(datasets)) {
+  expr_matrix <- datasets[[gse_id]]$expression_matrix
+  phenotype <- datasets[[gse_id]]$phenotype_data
+  
+  cat("Processing", gse_id, ":", 
+      nrow(expr_matrix), "features x", 
+      ncol(expr_matrix), "samples\n")
+}
+
+# 4. Save processed results
+saveRDS(datasets, "processed_geo_datasets.rds")
+```
+
+### Package Development Workflow
+
+```{r package-dev, eval = FALSE}
+# 1. Check dependencies
+check_dependencies(c("devtools", "usethis", "testthat"))
+
+# 2. Validate target repository
+validate_github_repo("https://github.com/username/mypackage.git")
+
+# 3. Deploy package
+deploy_package(
+  commit_message = "Release version 1.0.0",
+  run_tests = TRUE,
+  run_checks = TRUE
+)
+```
+
+## Configuration
+
+### Options
+
+Set package-specific options:
+
+```{r options, eval = FALSE}
+# Enable test mode (useful for package development)
+options(mestools.test_mode = TRUE)
+
+# Disable progress bars globally  
+options(mestools.progress = FALSE)
+```
+
+### Dependencies
+
+**Required packages:**
+- `devtools`, `usethis`, `gert`, `here` (for deployment functions)
+- `utils`, `tools`, `stats` (base functionality)
+
+**Suggested packages:**
+- `gh` (for GitHub repository validation)
+- `remotes` (for GitHub package installation)
+- `BiocManager` (for Bioconductor packages)
+- `GEOquery` (for GEO dataset downloading)
+- `Biostrings` (for 16S sequence analysis)
+- `DECIPHER` (for primer design and evaluation)
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+## Citation
+
+```{r citation, eval = FALSE}
+citation("mestools")
+```
+
+## Getting Help
+
+- **Documentation**: Use `?function_name` for help on specific functions
+- **Issues**: Report bugs at [GitHub Issues](https://github.com/vanhungtran/mestools/issues)
+- **Discussions**: Ask questions at [GitHub Discussions](https://github.com/vanhungtran/mestools/discussions)
+
+## Related Packages
+
+- [`usethis`](https://usethis.r-lib.org/) - Workflow functions for package development
+- [`devtools`](https://devtools.r-lib.org/) - Package development tools
+- [`here`](https://here.r-lib.org/) - Reproducible file paths
+- [`gert`](https://docs.ropensci.org/gert/) - Simple git client
+- [`GEOquery`](https://bioconductor.org/packages/GEOquery/) - Access GEO datasets
+- [`DECIPHER`](https://bioconductor.org/packages/DECIPHER/) - Primer design tools
+
+---
+
+*Developed by [Lucas VHH TRAN](https://github.com/vanhungtran) • 2025*
