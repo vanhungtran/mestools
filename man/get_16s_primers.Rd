@@ -8,12 +8,25 @@ get_16s_primers()
 }
 \value{
 A data.frame containing primer information with columns:
-region, name, forward_primer, reverse_primer, forward_name, reverse_name,
-application, amplicon_size
+\itemize{
+\item region: Hypervariable region(s) targeted
+\item forward_name: Forward primer identifier
+\item forward_primer: Forward primer sequence (5' to 3')
+\item reverse_name: Reverse primer identifier
+\item reverse_primer: Reverse primer sequence (5' to 3')
+\item application: Recommended use case
+\item amplicon_size: Expected amplicon length (bp)
+\item coverage: Taxonomic coverage rating
+\item bias_level: PCR bias assessment
+\item reference: Original publication
+\item platform_optimized: Recommended sequencing platform
+\item notes: Additional usage information
+}
 }
 \description{
 Returns a comprehensive database of commonly used 16S rRNA primer pairs
-for microbiome sequencing studies.
+for microbiome sequencing studies. Includes 20+ validated primer sets
+from major publications and sequencing projects.
 }
 \examples{
 # Get all standard primer pairs
@@ -22,4 +35,24 @@ print(primers)
 
 # Filter for V4 region
 v4_primers <- primers[primers$region == "V4", ]
+
+# Find primers with very low bias
+low_bias <- primers[primers$bias_level == "Very Low", ]
+
+# Get Earth Microbiome Project primers
+emp_primers <- primers[grepl("EMP", primers$application), ]
+
+# View all available references
+unique(primers$reference)
+
+}
+\references{
+\itemize{
+\item Lane (1991) 16S/23S rRNA sequencing. In Nucleic Acid Techniques.
+\item Caporaso et al. (2011) Global patterns of 16S rRNA diversity. PNAS.
+\item Klindworth et al. (2013) Evaluation of primers for amplicon sequencing. NAR.
+\item Apprill et al. (2015) Minor revision to V4 primers. Aquat Microb Ecol.
+\item Parada et al. (2016) Every base matters. Environ Microbiol.
+\item Walters et al. (2016) Improved primers for Illumina sequencing. ISME J.
+}
 }

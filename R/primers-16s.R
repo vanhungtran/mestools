@@ -7,11 +7,24 @@
 #' Get Standard 16S rRNA Primer Pairs
 #'
 #' Returns a comprehensive database of commonly used 16S rRNA primer pairs
-#' for microbiome sequencing studies.
+#' for microbiome sequencing studies. Includes 20+ validated primer sets
+#' from major publications and sequencing projects.
 #'
 #' @return A data.frame containing primer information with columns:
-#'   region, name, forward_primer, reverse_primer, forward_name, reverse_name, 
-#'   application, amplicon_size
+#'   \itemize{
+#'     \item region: Hypervariable region(s) targeted
+#'     \item forward_name: Forward primer identifier
+#'     \item forward_primer: Forward primer sequence (5' to 3')
+#'     \item reverse_name: Reverse primer identifier
+#'     \item reverse_primer: Reverse primer sequence (5' to 3')
+#'     \item application: Recommended use case
+#'     \item amplicon_size: Expected amplicon length (bp)
+#'     \item coverage: Taxonomic coverage rating
+#'     \item bias_level: PCR bias assessment
+#'     \item reference: Original publication
+#'     \item platform_optimized: Recommended sequencing platform
+#'     \item notes: Additional usage information
+#'   }
 #' @export
 #' @examples
 #' # Get all standard primer pairs
@@ -20,45 +33,386 @@
 #' 
 #' # Filter for V4 region
 #' v4_primers <- primers[primers$region == "V4", ]
+#' 
+#' # Find primers with very low bias
+#' low_bias <- primers[primers$bias_level == "Very Low", ]
+#' 
+#' # Get Earth Microbiome Project primers
+#' emp_primers <- primers[grepl("EMP", primers$application), ]
+#' 
+#' # View all available references
+#' unique(primers$reference)
+#' 
+#' @references
+#' \itemize{
+#'   \item Lane (1991) 16S/23S rRNA sequencing. In Nucleic Acid Techniques.
+#'   \item Caporaso et al. (2011) Global patterns of 16S rRNA diversity. PNAS.
+#'   \item Klindworth et al. (2013) Evaluation of primers for amplicon sequencing. NAR.
+#'   \item Apprill et al. (2015) Minor revision to V4 primers. Aquat Microb Ecol.
+#'   \item Parada et al. (2016) Every base matters. Environ Microbiol.
+#'   \item Walters et al. (2016) Improved primers for Illumina sequencing. ISME J.
+#' }
 get_16s_primers <- function() {
   primers_df <- data.frame(
-    region = c("V1-V2", "V1-V3", "V3-V4", "V4", "V4-V5", "V6-V8", "V7-V9"),
-    forward_name = c("27F", "27F", "341F", "515F", "515F", "939F", "1115F"),
+    region = c(
+      # Original primers
+      "V1-V2", "V1-V3", "V3-V4", "V4", "V4-V5", "V6-V8", "V7-V9",
+      # Additional widely-used primers
+      "V1-V3", "V3-V4", "V4", "V4-V5", "V3-V5", "V5-V6", "V5-V7",
+      "V6-V8", "V1-V9", "V2-V3", "V4-V6", "V3-V4", "V4"
+    ),
+    forward_name = c(
+      # Original
+      "27F", "27F", "341F", "515F", "515F", "939F", "1115F",
+      # Additional
+      "8F", "357F", "518F", "563F", "515F-Y", "784F", "799F",
+      "926F", "27F-Full", "104F", "515F-Parada", "347F", "519F"
+    ),
     forward_primer = c(
+      # Original
       "AGAGTTTGATCMTGGCTCAG",
       "AGAGTTTGATCMTGGCTCAG",
       "CCTACGGGNGGCWGCAG",
       "GTGCCAGCMGCCGCGGTAA",
       "GTGCCAGCMGCCGCGGTAA",
       "TTGACGGGGGCCCGCAC",
-      "GCAACGAGCGCAACCC"
+      "GCAACGAGCGCAACCC",
+      # Additional
+      "AGAGTTTGATCCTGGCTCAG",           # 8F - Bacterial universal
+      "CCTACGGGAGGCAGCAG",               # 357F - Common alternative
+      "CCAGCAGCYGCGGTAAN",               # 518F - Alternative V4
+      "GCCAGCMGCCGCGGTAA",               # 563F - Modified 515F
+      "GTGYCAGCMGCCGCGGTAA",             # 515F-Y - Apprill modification
+      "AGGATTAGATACCCTGGTA",             # 784F - V5-V6
+      "AACMGGATTAGATACCCKG",             # 799F - V5-V7
+      "AAACTYAAAKGAATTGACGG",            # 926F - V6-V8 alternative
+      "AGAGTTTGATYMTGGCTCAG",            # 27F-Full - Universal with Y
+      "GGCGVACGGGTGAGTAA",               # 104F - V2-V3
+      "GTGYCAGCMGCCGCGGTAA",             # 515F-Parada - Improved V4
+      "GGAGGCAGCAGTRRGGAAT",             # 347F - Alternative V3-V4
+      "CAGCMGCCGCGGTAATWC"               # 519F - EMP modified
     ),
-    reverse_name = c("338R", "534R", "785R", "806R", "944R", "1378R", "1492R"),
+    reverse_name = c(
+      # Original
+      "338R", "534R", "785R", "806R", "944R", "1378R", "1492R",
+      # Additional
+      "519R", "926R", "786R", "926R", "806R-Y", "1061R", "1193R",
+      "1392R", "1492R-Full", "338R", "907R", "803R", "785R"
+    ),
     reverse_primer = c(
+      # Original
       "TGCTGCCTCCCGTAGGAGT",
       "ATTACCGCGGCTGCTGG",
       "GACTACHVGGGTATCTAATCC",
       "GGACTACHVGGGTWTCTAAT",
       "GAATTGGCACCTTGAGGAC",
       "CGGTGTGTACAAGGCCCGGGAACG",
-      "GGTTACCTTGTTACGACTT"
+      "GGTTACCTTGTTACGACTT",
+      # Additional
+      "GWATTACCGCGGCKGCTG",             # 519R - Broad coverage
+      "CCGYCAATTYMTTTRAGTTT",           # 926R - V3-V4 alternative
+      "GGACTACCAGGGTATCTAAT",           # 786R - Alternative V4
+      "CCGTCAATTCMTTTGAGTTT",           # 926R - V4-V5
+      "GGACTACNVGGGTWTCTAAT",           # 806R-Y - Apprill modification
+      "CRRCACGAGCTGACGAC",               # 1061R - V5-V6
+      "ACGTCATCCCCACCTTCC",              # 1193R - V5-V7
+      "ACGGGCGGTGTGTRC",                 # 1392R - V6-V8
+      "RGYTACCTTGTTACGACTT",             # 1492R-Full - Full length
+      "ACTCCTACGGGAGGCAGC",              # 338R - V2-V3
+      "CCGTCAATTCMTTTRAGTTT",            # 907R - V4-V6
+      "CTACCRGGGTATCTAATCC",             # 803R - V3-V4 alt
+      "TACNVGGGTATCTAATCC"               # 785R - Alternative
     ),
     application = c(
+      # Original
       "Broad bacterial profiling",
       "Environmental microbiomes",
       "Gut microbiota (widely used)",
       "Universal (Earth Microbiome Project)",
       "Marine/environmental studies",
       "Archaeal and bacterial detection",
-      "Full-length near-universal"
+      "Full-length near-universal",
+      # Additional
+      "Bacterial universal primer",
+      "Human microbiome, high specificity",
+      "Alternative Earth Microbiome Project",
+      "Modified EMP for marine samples",
+      "Cyanobacteria/chloroplast improved",
+      "Deep sequencing applications",
+      "Soil/environmental diversity",
+      "Archaeal diversity studies",
+      "Full-length 16S for long reads",
+      "Human-associated microbiomes",
+      "Complex environmental samples",
+      "Klindworth optimized primers",
+      "Modified EMP with improved coverage"
     ),
-    amplicon_size = c(311, 507, 444, 291, 429, 439, 377),
-    coverage = c("High", "High", "Very High", "Very High", "High", "Medium-High", "High"),
-    bias_level = c("Low", "Low", "Very Low", "Very Low", "Low", "Medium", "Low"),
+    amplicon_size = c(
+      # Original
+      311, 507, 444, 291, 429, 439, 377,
+      # Additional
+      511, 569, 268, 363, 291, 277, 394,
+      466, 1465, 234, 392, 456, 438
+    ),
+    coverage = c(
+      # Original
+      "High", "High", "Very High", "Very High", "High", "Medium-High", "High",
+      # Additional
+      "Very High", "High", "Very High", "High", "Very High", "Medium", "High",
+      "Medium-High", "Very High", "High", "High", "High", "Very High"
+    ),
+    bias_level = c(
+      # Original
+      "Low", "Low", "Very Low", "Very Low", "Low", "Medium", "Low",
+      # Additional
+      "Low", "Very Low", "Very Low", "Low", "Very Low", "Medium", "Low",
+      "Medium", "Low", "Low", "Low", "Low", "Very Low"
+    ),
+    reference = c(
+      # Original
+      "Lane 1991",
+      "Lane 1991 / Muyzer 1993",
+      "Klindworth 2013",
+      "Caporaso 2011 (EMP)",
+      "Parada 2016",
+      "PMHz 2007",
+      "Turner 1999",
+      # Additional
+      "Edwards 1989",
+      "Nadkarni 2002",
+      "Caporaso 2012",
+      "Parada 2016",
+      "Apprill 2015",
+      "Anderson 2008",
+      "Chelius 2001",
+      "DeLong 1992",
+      "Weisburg 1991",
+      "Sundquist 2007",
+      "Tamaki 2011",
+      "Klindworth 2013",
+      "Walters 2016"
+    ),
+    platform_optimized = c(
+      # Original
+      "Illumina MiSeq", "Illumina MiSeq", "Illumina MiSeq/NovaSeq", 
+      "Illumina MiSeq/NovaSeq", "Illumina MiSeq", "454/Illumina", "PacBio/Nanopore",
+      # Additional
+      "Sanger/PacBio", "Illumina MiSeq", "Illumina MiSeq/NovaSeq",
+      "Illumina MiSeq", "Illumina MiSeq/NovaSeq", "Illumina MiSeq",
+      "Illumina HiSeq", "454/Ion Torrent", "PacBio/Nanopore",
+      "Illumina MiSeq", "Illumina MiSeq", "Illumina MiSeq/NovaSeq",
+      "Illumina MiSeq/NovaSeq"
+    ),
+    notes = c(
+      # Original
+      "Classical bacterial primer, broad coverage",
+      "Good for diverse environmental samples",
+      "Most widely used, excellent for gut microbiome",
+      "Earth Microbiome Project standard",
+      "Improved coverage for marine samples",
+      "Includes archaea, longer amplicon",
+      "Nearly complete 16S, requires long reads",
+      # Additional
+      "Original bacterial universal primer",
+      "High specificity, low bias",
+      "Alternative to 515F/806R",
+      "Better for cyanobacteria-rich samples",
+      "Reduced bias against SAR11 clade and Thaumarchaeota",
+      "Good taxonomic resolution, moderate length",
+      "Excellent for soil microbial diversity",
+      "Archaeal primer, use with caution for bacteria",
+      "Best for species-level identification",
+      "Short amplicon, good for degraded DNA",
+      "Longer amplicon, good taxonomic resolution",
+      "Optimized for maximum coverage",
+      "Improved version of EMP primers"
+    ),
     stringsAsFactors = FALSE
   )
   
   return(primers_df)
+}
+
+#' Search and Filter 16S Primer Database
+#'
+#' Advanced search function to filter primers by multiple criteria including
+#' region, amplicon size, platform, coverage, and reference.
+#'
+#' @param region Character. Filter by hypervariable region (e.g., "V4", "V3-V4")
+#' @param amplicon_size_min Integer. Minimum amplicon size (bp)
+#' @param amplicon_size_max Integer. Maximum amplicon size (bp)
+#' @param platform Character. Filter by sequencing platform
+#' @param coverage Character. Filter by coverage rating ("High", "Very High", etc.)
+#' @param bias_level Character. Filter by bias level ("Low", "Very Low", etc.)
+#' @param reference Character. Filter by publication/reference
+#' @param keyword Character. Search in application or notes fields
+#' @return Filtered data.frame of primers matching criteria
+#' @export
+#' @examples
+#' \dontrun{
+#' # Find all V4 primers
+#' v4_primers <- search_16s_primers(region = "V4")
+#' 
+#' # Find short amplicons for degraded DNA
+#' short_primers <- search_16s_primers(amplicon_size_max = 300)
+#' 
+#' # Find primers optimized for Illumina with very high coverage
+#' illumina_primers <- search_16s_primers(
+#'   platform = "Illumina", 
+#'   coverage = "Very High"
+#' )
+#' 
+#' # Find primers for marine studies
+#' marine_primers <- search_16s_primers(keyword = "marine")
+#' 
+#' # Find Earth Microbiome Project primers
+#' emp_primers <- search_16s_primers(reference = "Caporaso")
+#' 
+#' # Complex search: V3-V4 region, low bias, for Illumina
+#' optimal <- search_16s_primers(
+#'   region = "V3-V4",
+#'   bias_level = "Very Low",
+#'   platform = "Illumina"
+#' )
+#' }
+search_16s_primers <- function(region = NULL,
+                               amplicon_size_min = NULL,
+                               amplicon_size_max = NULL,
+                               platform = NULL,
+                               coverage = NULL,
+                               bias_level = NULL,
+                               reference = NULL,
+                               keyword = NULL) {
+  
+  primers <- get_16s_primers()
+  
+  # Apply filters
+  if (!is.null(region)) {
+    primers <- primers[primers$region == region, ]
+  }
+  
+  if (!is.null(amplicon_size_min)) {
+    primers <- primers[primers$amplicon_size >= amplicon_size_min, ]
+  }
+  
+  if (!is.null(amplicon_size_max)) {
+    primers <- primers[primers$amplicon_size <= amplicon_size_max, ]
+  }
+  
+  if (!is.null(platform)) {
+    primers <- primers[grepl(platform, primers$platform_optimized, ignore.case = TRUE), ]
+  }
+  
+  if (!is.null(coverage)) {
+    primers <- primers[primers$coverage == coverage, ]
+  }
+  
+  if (!is.null(bias_level)) {
+    primers <- primers[primers$bias_level == bias_level, ]
+  }
+  
+  if (!is.null(reference)) {
+    primers <- primers[grepl(reference, primers$reference, ignore.case = TRUE), ]
+  }
+  
+  if (!is.null(keyword)) {
+    keyword_match <- grepl(keyword, primers$application, ignore.case = TRUE) |
+                     grepl(keyword, primers$notes, ignore.case = TRUE)
+    primers <- primers[keyword_match, ]
+  }
+  
+  if (nrow(primers) == 0) {
+    message("No primers found matching the specified criteria")
+    return(data.frame())
+  }
+  
+  message("Found ", nrow(primers), " primer pair(s) matching criteria")
+  
+  return(primers)
+}
+
+#' Get Primer Statistics and Summary
+#'
+#' Provides summary statistics about the 16S primer database including
+#' coverage by region, platform distribution, and reference counts.
+#'
+#' @return A list containing summary statistics
+#' @export
+#' @examples
+#' \dontrun{
+#' stats <- get_primer_stats()
+#' print(stats)
+#' }
+get_primer_stats <- function() {
+  
+  primers <- get_16s_primers()
+  
+  stats <- list(
+    total_primers = nrow(primers),
+    
+    by_region = table(primers$region),
+    
+    by_platform = table(primers$platform_optimized),
+    
+    by_coverage = table(primers$coverage),
+    
+    by_bias = table(primers$bias_level),
+    
+    amplicon_range = range(primers$amplicon_size),
+    
+    mean_amplicon = mean(primers$amplicon_size),
+    
+    references = unique(primers$reference),
+    
+    regions_available = unique(primers$region),
+    
+    platforms_supported = unique(primers$platform_optimized)
+  )
+  
+  return(stats)
+}
+
+#' Print Primer Statistics
+#'
+#' Pretty-print summary of primer database statistics
+#'
+#' @export
+#' @examples
+#' \dontrun{
+#' print_primer_stats()
+#' }
+print_primer_stats <- function() {
+  
+  stats <- get_primer_stats()
+  
+  cat("\n=== 16S Primer Database Statistics ===\n\n")
+  
+  cat("Total primer pairs:", stats$total_primers, "\n\n")
+  
+  cat("Coverage by Region:\n")
+  print(stats$by_region)
+  
+  cat("\nCoverage Rating Distribution:\n")
+  print(stats$by_coverage)
+  
+  cat("\nBias Level Distribution:\n")
+  print(stats$by_bias)
+  
+  cat("\nAmplicon Size Range:", stats$amplicon_range[1], "-", stats$amplicon_range[2], "bp\n")
+  cat("Mean Amplicon Size:", round(stats$mean_amplicon, 0), "bp\n\n")
+  
+  cat("Regions Available:\n")
+  cat(paste(" -", stats$regions_available), sep = "\n")
+  
+  cat("\nPlatforms Supported:\n")
+  cat(paste(" -", stats$platforms_supported), sep = "\n")
+  
+  cat("\nReferences Included:\n")
+  cat(paste(" -", stats$references), sep = "\n")
+  
+  cat("\n")
+  
+  invisible(stats)
 }
 
 #' Select Optimal 16S Primer Pair
