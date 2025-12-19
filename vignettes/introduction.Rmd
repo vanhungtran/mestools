@@ -1,0 +1,209 @@
+---
+title: "Introduction to mestools"
+author: "Lucas VHH TRAN"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to mestools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Overview
+
+The `mestools` package provides a comprehensive collection of utility functions for data analysis, package development, and bioinformatics workflows. This vignette introduces the main features and demonstrates common use cases.
+
+## Installation
+
+```{r installation}
+# Install from GitHub
+# devtools::install_github("vanhungtran/mestools")
+
+# Load the package
+library(mestools)
+```
+
+## Main Features
+
+### 1. Package Development Tools
+
+The package includes tools to streamline R package development and deployment:
+
+```{r package-dev}
+# Validate a GitHub repository
+validate_github_repo("https://github.com/r-lib/usethis.git")
+
+# Deploy package to GitHub (automated workflow)
+deploy_package(
+  package_name = "mypackage",
+  repo_url = "https://github.com/username/mypackage.git",
+  run_tests = TRUE,
+  run_check = TRUE
+)
+```
+
+### 2. Utility Functions
+
+#### Check and Install Dependencies
+
+```{r dependencies}
+# Check if required packages are available
+required_pkgs <- c("dplyr", "ggplot2", "tidyr")
+check_dependencies(required_pkgs)
+
+# Install and load packages automatically
+install_and_load(c("dplyr", "ggplot2"))
+```
+
+#### Create Project Structure
+
+```{r project-structure}
+# Create a standardized project directory structure
+dirs <- c("data", "scripts", "results", "figures")
+create_project_structure(dirs, base_path = "my_project")
+```
+
+#### Generate Random Data
+
+```{r random-data}
+# Generate random data frame for testing
+df <- generate_random_df(nrows = 100, ncols = 5)
+head(df)
+```
+
+### 3. Data Processing
+
+#### Batch Apply Functions
+
+Apply functions to lists or vectors with error handling:
+
+```{r batch-apply}
+# Process multiple files with error handling
+files <- c("file1.csv", "file2.csv", "file3.csv")
+results <- batch_apply(files, read.csv, show_progress = TRUE)
+```
+
+#### Safe File Reading
+
+```{r safe-reading}
+# Read files with automatic error handling
+data <- read_file_safe("myfile.csv", type = "csv")
+```
+
+### 4. Data Summaries
+
+```{r summary}
+# Quick summary of data objects
+df <- data.frame(x = rnorm(100), y = runif(100))
+quick_summary(df)
+```
+
+## GEO Dataset Functions
+
+The package includes specialized functions for working with GEO datasets:
+
+```{r geo-data}
+# Read a single GEO dataset
+geo_data <- read_geo_dataset("GSE102628")
+
+# Read multiple GEO datasets
+gse_list <- get_default_gse_list()
+results <- read_multiple_geo_datasets(gse_list[1:3])
+```
+
+## 16S Primer Analysis
+
+See the dedicated vignette for comprehensive 16S primer analysis tools:
+
+```{r primer-tools}
+# Get available primers
+primers <- get_16s_primers()
+head(primers)
+
+# Search for specific primers
+v4_primers <- search_16s_primers(region = "V4")
+
+# Get primer statistics
+stats <- get_primer_stats(primers)
+print_primer_stats(stats)
+```
+
+## Sanger Sequencing Workflow
+
+For Sanger sequencing analysis, see the Sanger sequencing vignette:
+
+```{r sanger}
+# Load .ab1 files and create contigs
+groups <- load.files(path = "path/to/ab1/files")
+
+# Analyze sequences
+analyze.sequences(
+  groupdataframe = groups,
+  contigName = "MyGene",
+  GENETABLE = "~/BLAST_DB/16S/16S.fas"
+)
+```
+
+## Visualization
+
+### Radar Plots with Statistics
+
+```{r radar-plot}
+# Create radar plot with confidence intervals and p-values
+data <- data.frame(
+  group = rep(c("A", "B"), each = 10),
+  var1 = rnorm(20, mean = c(5, 7)),
+  var2 = rnorm(20, mean = c(6, 8)),
+  var3 = rnorm(20, mean = c(7, 6))
+)
+
+radar_with_p(
+  data = data,
+  group_col = "group",
+  compare_groups = c("A", "B"),
+  add_ci = TRUE
+)
+```
+
+## Getting Help
+
+For more detailed information about specific functions:
+
+```{r help}
+# View function documentation
+?get_16s_primers
+?analyze.sequences
+?radar_with_p
+
+# Browse all package documentation
+help(package = "mestools")
+```
+
+## Additional Resources
+
+- **16S Primer Tools**: See `vignette("primer-analysis")`
+- **Sanger Sequencing**: See `vignette("sanger-workflow")`
+- **GitHub Repository**: https://github.com/vanhungtran/mestools
+- **Report Issues**: https://github.com/vanhungtran/mestools/issues
+
+## Summary
+
+The `mestools` package provides:
+
+- Package development and deployment automation
+- Utility functions for common R tasks
+- GEO dataset processing tools
+- Comprehensive 16S primer database and analysis
+- Sanger sequencing workflow automation
+- BLAST integration
+- Advanced visualization tools
+
+For specific workflows, please refer to the dedicated vignettes listed above.

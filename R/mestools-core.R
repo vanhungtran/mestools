@@ -388,9 +388,9 @@ read_multiple_geo_datasets <- function(gse_list) {
   return(results)
 }
 
-# Now you can run your code again
-gse_list <- c("GSE102628", "GSE102641", "GSE102725")
-results <- read_multiple_geo_datasets(gse_list)
+# Example usage (commented out - run manually if needed):
+# gse_list <- c("GSE102628", "GSE102641", "GSE102725")
+# results <- read_multiple_geo_datasets(gse_list)
 
 #' Get Default GSE Dataset List
 #'

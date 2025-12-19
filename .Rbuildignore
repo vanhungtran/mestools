@@ -2,3 +2,10 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^README\.Rmd$
+\.backup$
+-backup\.R$
+^CODE_IMPROVEMENTS_SUMMARY\.md$
+^creat_pkg_name\.R$
+^\.claude$
+^R/qiime2_workflow\.R$
+^R/mestools-core-backup\.R$

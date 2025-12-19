@@ -1,0 +1,437 @@
+---
+title: "16S rRNA Primer Analysis and Selection"
+author: "Lucas VHH TRAN"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{16S rRNA Primer Analysis and Selection}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Overview
+
+The `mestools` package includes a comprehensive database of validated 16S rRNA gene primers and tools for primer selection, comparison, and ordering. This vignette demonstrates how to use these tools for your microbiome research.
+
+## Primer Database
+
+The package includes over 20 validated primer pairs covering all major hypervariable regions (V1-V9) of the 16S rRNA gene.
+
+```{r load-package}
+library(mestools)
+```
+
+## Getting Available Primers
+
+### View All Primers
+
+```{r view-primers}
+# Get the complete primer database
+primers <- get_16s_primers()
+
+# View structure
+str(primers)
+
+# View first few entries
+head(primers)
+
+# View column names
+names(primers)
+```
+
+### Get Primer Statistics
+
+```{r primer-stats}
+# Get comprehensive statistics
+stats <- get_primer_stats(primers)
+
+# Print formatted statistics
+print_primer_stats(stats)
+
+# Access individual statistics
+stats$total_primers        # Total number of primer pairs
+stats$by_region           # Primers by region
+stats$by_coverage         # Primers by taxonomic coverage
+stats$by_bias             # Primers by amplification bias
+```
+
+## Searching and Filtering Primers
+
+### Search by Region
+
+```{r search-region}
+# Get all V4 region primers
+v4_primers <- search_16s_primers(region = "V4")
+print(v4_primers)
+
+# Get V3-V4 region primers
+v3v4_primers <- search_16s_primers(region = "V3-V4")
+
+# Get multiple regions
+multi_region <- search_16s_primers(region = c("V4", "V3-V4"))
+```
+
+### Search by Coverage
+
+```{r search-coverage}
+# Get universal primers
+universal_primers <- search_16s_primers(coverage = "Universal")
+
+# Get bacteria-specific primers
+bacteria_primers <- search_16s_primers(coverage = "Bacteria")
+
+# Combine filters
+v4_bacteria <- search_16s_primers(region = "V4", coverage = "Bacteria")
+```
+
+### Search by Name
+
+```{r search-name}
+# Find specific primer pair
+earth_micro <- search_16s_primers(name = "EMP")
+
+# Search by partial name
+primers_515 <- search_16s_primers(name = "515")
+```
+
+### Advanced Filtering
+
+```{r advanced-search}
+# Multiple criteria
+ideal_primers <- search_16s_primers(
+  region = "V4",
+  coverage = "Universal",
+  bias = "Low"
+)
+
+# For specific applications
+soil_primers <- search_16s_primers(
+  coverage = "Universal",
+  bias = "Low"
+)
+```
+
+## Primer Selection Workflow
+
+### Automated Primer Selection
+
+```{r select-primers}
+# Select primers for a specific application
+recommendation <- select_16s_primers(
+  application = "universal",
+  region = "V4"
+)
+
+# View recommendation
+print(recommendation)
+
+# Access recommended primers
+recommendation$primers
+
+# View selection criteria
+recommendation$criteria
+
+# Get rationale
+recommendation$rationale
+```
+
+### Application-Specific Selection
+
+```{r app-specific}
+# For gut microbiome studies
+gut_primers <- select_16s_primers(
+  application = "gut",
+  region = "V4"
+)
+
+# For soil samples
+soil_primers <- select_16s_primers(
+  application = "soil",
+  region = "V3-V4"
+)
+
+# For marine samples
+marine_primers <- select_16s_primers(
+  application = "marine",
+  region = "V4"
+)
+
+# For human microbiome
+human_primers <- select_16s_primers(
+  application = "human",
+  region = "V4"
+)
+```
+
+## Primer Comparison
+
+### Compare Multiple Primer Pairs
+
+```{r compare-primers}
+# Define primers to compare
+primer_names <- c(
+  "515F-806R (EMP)",
+  "341F-805R",
+  "515F-926R"
+)
+
+# Perform comparison
+comparison <- compare_16s_primers(primer_names)
+
+# View comparison table
+print(comparison)
+
+# Access comparison data
+comparison$region          # Hypervariable region
+comparison$length         # Amplicon length
+comparison$coverage       # Taxonomic coverage
+comparison$bias          # Amplification bias
+comparison$reference     # Reference citations
+```
+
+### Visualize Comparison
+
+```{r visualize-comparison}
+# The comparison results can be visualized
+# (requires additional plotting setup)
+comp_data <- compare_16s_primers(c("515F-806R (EMP)", "341F-805R"))
+
+# Create comparison summary
+summary_df <- data.frame(
+  Primer = comp_data$name,
+  Region = comp_data$region,
+  Length = comp_data$length,
+  Coverage = comp_data$coverage,
+  Bias = comp_data$bias
+)
+
+print(summary_df)
+```
+
+## Generating Primer Orders
+
+### Create Order Sheet
+
+```{r generate-order}
+# Generate order information for specific region
+order_info <- generate_primer_order(
+  region = "V4",
+  include_adaptors = TRUE,
+  concentration = "100 uM",
+  scale = "25 nmol"
+)
+
+# View order details
+print(order_info)
+
+# Access individual components
+order_info$primers        # Primer sequences
+order_info$adaptors      # Adaptor sequences (if included)
+order_info$specifications # Order specifications
+```
+
+### Custom Primer Orders
+
+```{r custom-order}
+# Without adaptors
+basic_order <- generate_primer_order(
+  region = "V3-V4",
+  include_adaptors = FALSE
+)
+
+# Different concentration
+high_conc <- generate_primer_order(
+  region = "V4",
+  concentration = "200 uM",
+  scale = "100 nmol"
+)
+```
+
+## Custom Primer Design
+
+### Design Workflow
+
+```{r design-primers}
+# Design custom primers for specific needs
+custom_design <- design_custom_16s_primers(
+  target_region = "V4",
+  target_taxa = "Bacteria",
+  application = "soil"
+)
+
+# View design recommendations
+print(custom_design)
+
+# Get design parameters
+custom_design$recommendations
+custom_design$considerations
+```
+
+## Practical Examples
+
+### Example 1: Selecting Primers for Gut Microbiome Study
+
+```{r example-gut}
+# Step 1: Search for suitable primers
+candidates <- search_16s_primers(
+  region = c("V3-V4", "V4"),
+  coverage = c("Universal", "Bacteria"),
+  bias = "Low"
+)
+
+# Step 2: Get automated recommendation
+recommendation <- select_16s_primers(
+  application = "gut",
+  region = "V4"
+)
+
+# Step 3: Compare top candidates
+comparison <- compare_16s_primers(
+  c("515F-806R (EMP)", "341F-805R")
+)
+
+# Step 4: Generate order
+order <- generate_primer_order(
+  region = "V4",
+  include_adaptors = TRUE
+)
+
+print(order)
+```
+
+### Example 2: Comparing Primers for Different Regions
+
+```{r example-compare-regions}
+# Compare primers from different regions
+v4_primer <- search_16s_primers(region = "V4")[1, ]
+v3v4_primer <- search_16s_primers(region = "V3-V4")[1, ]
+
+comparison <- compare_16s_primers(
+  c(v4_primer$name, v3v4_primer$name)
+)
+
+print(comparison)
+```
+
+### Example 3: Finding Primers for Specific Taxa
+
+```{r example-taxa}
+# Find archaea-specific primers
+archaea <- search_16s_primers(coverage = "Archaea")
+print(archaea)
+
+# Find bacteria-specific primers with low bias
+bacteria_low_bias <- search_16s_primers(
+  coverage = "Bacteria",
+  bias = "Low"
+)
+print(bacteria_low_bias)
+```
+
+## Primer Analysis Workflow
+
+A complete workflow for primer selection:
+
+```{r complete-workflow}
+# 1. Explore available primers
+all_primers <- get_16s_primers()
+stats <- get_primer_stats(all_primers)
+print_primer_stats(stats)
+
+# 2. Filter by your requirements
+candidates <- search_16s_primers(
+  region = "V4",
+  coverage = "Universal",
+  bias = "Low"
+)
+
+# 3. Get recommendation
+recommendation <- select_16s_primers(
+  application = "universal",
+  region = "V4"
+)
+
+# 4. Compare options
+if (nrow(candidates) > 1) {
+  comparison <- compare_16s_primers(candidates$name[1:min(3, nrow(candidates))])
+  print(comparison)
+}
+
+# 5. Generate order
+final_primers <- recommendation$primers
+order_info <- generate_primer_order(
+  region = final_primers$region[1],
+  include_adaptors = TRUE
+)
+
+print(order_info)
+```
+
+## Best Practices
+
+### Primer Selection Guidelines
+
+1. **Consider your sample type**: Different environments may require different primer sets
+2. **Check taxonomic coverage**: Ensure primers cover your taxa of interest
+3. **Evaluate amplicon length**: Balance between length and sequencing platform
+4. **Review amplification bias**: Lower bias generally provides more accurate results
+5. **Check references**: Use well-validated primers when possible
+
+### Common Applications
+
+- **Soil samples**: V3-V4 or V4 region, universal coverage, low bias
+- **Gut microbiome**: V4 region, bacteria-focused, EMP primers
+- **Marine samples**: V4 or V3-V4 region, universal coverage
+- **Clinical samples**: V3-V4 or V4 region, consider pathogen detection
+
+## References
+
+The primer database includes citations to original publications. Access references through:
+
+```{r references}
+primers <- get_16s_primers()
+unique(primers$reference)  # View all references
+
+# Get reference for specific primer
+emp_primer <- search_16s_primers(name = "EMP")
+emp_primer$reference
+```
+
+## Getting Help
+
+For additional help:
+
+```{r help}
+# Function documentation
+?get_16s_primers
+?search_16s_primers
+?select_16s_primers
+?compare_16s_primers
+
+# Package documentation
+help(package = "mestools")
+
+# Report issues
+# https://github.com/vanhungtran/mestools/issues
+```
+
+## Summary
+
+The mestools primer analysis tools provide:
+
+- Comprehensive database of 20+ validated primer pairs
+- Flexible search and filtering capabilities
+- Automated primer selection for common applications
+- Side-by-side comparison of primer characteristics
+- Order sheet generation with specifications
+- Support for custom primer design
+
+For integration with sequencing workflows, see `vignette("sanger-workflow")`.

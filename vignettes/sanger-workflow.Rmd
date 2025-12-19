@@ -1,0 +1,510 @@
+---
+title: "Sanger Sequencing Analysis Workflow"
+author: "Lucas VHH TRAN"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Sanger Sequencing Analysis Workflow}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+# Overview
+
+The `mestools` package provides a complete workflow for Sanger sequencing analysis, from loading .ab1 files to BLAST analysis. This vignette demonstrates the entire process for both paired-end (forward/reverse) and single-read sequencing data.
+
+## Prerequisites
+
+```{r prerequisites}
+library(mestools)
+
+# Required packages (will be checked automatically)
+# - sangeranalyseR
+# - seqinr
+# - Biostrings
+# - DECIPHER
+```
+
+## Workflow Overview
+
+1. **Load and organize .ab1 files**
+2. **Generate contigs from paired reads**
+3. **Quality assessment**
+4. **Export sequences**
+5. **BLAST analysis**
+6. **Results summary**
+
+# Paired-End Sequencing Workflow
+
+## Step 1: Load .ab1 Files
+
+The first step is to load your .ab1 files and organize them into groups:
+
+```{r load-files}
+# Set path to directory containing .ab1 files
+ab1_path <- "path/to/ab1/files"
+
+# Load files and create groupings
+# Files are automatically paired based on naming conventions
+# e.g., "Sample1_F.ab1" and "Sample1_R.ab1" will be grouped
+groups <- load.files(path = ab1_path)
+
+# View the grouping structure
+print(groups)
+str(groups)
+```
+
+### File Naming Conventions
+
+Files should follow these naming patterns:
+- Forward reads: `*_F.ab1`, `*_1.ab1`, or `*_forward.ab1`
+- Reverse reads: `*_R.ab1`, `*_2.ab1`, or `*_reverse.ab1`
+
+Example:
+```
+Sample001_F.ab1
+Sample001_R.ab1
+Sample002_F.ab1
+Sample002_R.ab1
+```
+
+## Step 2: Generate Contigs
+
+Create consensus sequences from paired forward and reverse reads:
+
+```{r generate-contigs}
+# Generate contig for a single group
+contig_result <- CB.Contig(
+  groupdataframe = groups,
+  contigName = "MySample_001",
+  GENETABLE = "path/to/reference.fas",
+  minReads = 2,
+  threshold = 0.33,
+  minFractionCall = 0.75,
+  maxFractionLost = 0.5
+)
+
+# The function will:
+# 1. Read forward and reverse .ab1 files
+# 2. Perform quality trimming
+# 3. Generate consensus sequence
+# 4. Export FASTA file
+# 5. Create alignment visualization
+# 6. Generate quality reports
+```
+
+### Parameters Explained
+
+- `groupdataframe`: Output from `load.files()`
+- `contigName`: Name of the sample/contig
+- `GENETABLE`: Reference sequence for alignment (optional)
+- `minReads`: Minimum number of reads required (default: 2)
+- `threshold`: Quality score threshold (default: 0.33)
+- `minFractionCall`: Minimum fraction for base calling (default: 0.75)
+- `maxFractionLost`: Maximum fraction of sequence that can be trimmed (default: 0.5)
+
+## Step 3: Batch Processing
+
+Process multiple samples at once:
+
+```{r batch-process}
+# Summarize all contigs
+summary_data <- Summarize.Sanger(
+  groupdataframe = groups,
+  GENETABLE = "path/to/reference.fas"
+)
+
+# View summary
+print(summary_data)
+
+# Access individual components
+summary_data$name           # Sample names
+summary_data$length         # Sequence lengths
+summary_data$quality_scores # Quality metrics
+```
+
+## Step 4: Complete Analysis Pipeline
+
+Run the complete analysis including BLAST:
+
+```{r complete-analysis}
+# Set up paths
+ab1_path <- "path/to/ab1/files"
+output_path <- "path/to/output"
+
+# Run complete analysis
+analyze.sequences(
+  path = ab1_path,
+  resultpath = output_path,
+  GENETABLE = "~/BLAST_DB/16S/16S.fas"
+)
+
+# This will:
+# 1. Load all .ab1 files
+# 2. Generate contigs for all sample pairs
+# 3. Export FASTA files
+# 4. Create quality reports
+# 5. Generate summary CSV file
+```
+
+### Output Files
+
+The analysis creates the following directory structure:
+
+```
+output/
+├── FASTA/
+│   ├── Sample001_consensus.fas
+│   ├── Sample002_consensus.fas
+│   └── ...
+├── Alignments/
+│   ├── Sample001_alignment.fa
+│   ├── Sample002_alignment.fa
+│   └── ...
+├── Results/
+│   └── summary_report.csv
+└── QualityPlots/
+    ├── Sample001_quality.pdf
+    └── ...
+```
+
+# Single-Read Workflow
+
+For samples with only forward OR reverse reads:
+
+## Single Read Processing
+
+```{r single-read}
+# Process a single read
+single_result <- single.read(
+  readFileName = "path/to/sample_F.ab1",
+  singleName = "MySample_001"
+)
+
+# Batch process single reads
+single_summary <- Summarize.Single(
+  readFileName = "path/to/sample_F.ab1",
+  singleName = "MySample_001"
+)
+
+# Complete single-read analysis
+analyze.single.sequence(
+  path = "path/to/ab1/files",
+  resultpath = "path/to/output"
+)
+```
+
+# BLAST Analysis
+
+## Setting Up BLAST
+
+First, configure your BLAST environment:
+
+```{r setup-blast}
+# Set up BLAST paths
+setup_blast_env(
+  bin_path = "/usr/local/ncbi-blast/bin",
+  db_path = "~/BLAST_DB"
+)
+
+# Verify BLAST installation
+system("blastn -version")
+```
+
+## Editing FASTA Files
+
+Prepare FASTA files for BLAST by cleaning headers:
+
+```{r edit-fasta}
+# Clean FASTA file headers
+edit.fasta(
+  x = "path/to/sequence.fas",
+  name = "CleanedSequence"
+)
+
+# This removes special characters and formats headers for BLAST
+```
+
+## Running BLAST
+
+### Single Sequence BLAST
+
+```{r blast-single}
+# BLAST a single sequence
+blast_result <- Blast.CB(
+  x = "path/to/sequence.fas",
+  blast_db = "~/BLAST_DB/16S/16S_database",
+  DBname = "16S_rRNA",
+  evalue = 1e-10,
+  max_target = 10
+)
+
+# View results
+head(blast_result)
+
+# Results include:
+# - Query sequence ID
+# - Subject sequence ID
+# - Percent identity
+# - Alignment length
+# - Mismatches
+# - E-value
+# - Bit score
+```
+
+### Processing Single FASTA File
+
+```{r blast-all}
+# BLAST and save results
+Blast.all(
+  x = "path/to/sequence.fas",
+  blast_db = "~/BLAST_DB/16S/16S_database",
+  DBname = "16S_analysis"
+)
+
+# This will:
+# 1. Edit FASTA headers
+# 2. Run BLAST search
+# 3. Parse results
+# 4. Save to CSV file in ../Results/
+```
+
+### Batch BLAST Analysis
+
+```{r batch-blast}
+# BLAST all FASTA files in a directory
+Blast.Files(
+  Blastpath = "path/to/FASTA/files",
+  blast16Sdb = "~/BLAST_DB/16S/16S_database",
+  blastITSdb = "~/BLAST_DB/ITS/ITS_database",
+  DBname = "MyProject"
+)
+
+# Files are automatically categorized:
+# - Files containing "16S" -> BLAST against 16S database
+# - Files containing "ITS" -> BLAST against ITS database
+
+# Results saved to:
+# - ../Results/BLAST_16S/
+# - ../Results/BLAST_ITS/
+```
+
+## BLAST Parameters
+
+```{r blast-params}
+# Customize BLAST parameters
+blast_result <- Blast.CB(
+  x = "sequence.fas",
+  blast_db = "database",
+  DBname = "analysis",
+  evalue = 1e-20,        # More stringent E-value
+  max_target = 20,       # More hits
+  perc_identity = 97,    # Minimum identity threshold
+  qcov_hsp_perc = 95    # Minimum coverage
+)
+```
+
+# Complete End-to-End Example
+
+## Example: 16S rRNA Analysis
+
+```{r complete-example}
+# Step 1: Set up directories
+ab1_dir <- "~/Data/Sanger/16S_samples"
+output_dir <- "~/Analysis/16S_project"
+blast_db <- "~/BLAST_DB/16S/silva_16S"
+
+# Step 2: Configure BLAST
+setup_blast_env(
+  bin_path = "/usr/local/ncbi-blast/bin",
+  db_path = "~/BLAST_DB"
+)
+
+# Step 3: Run complete Sanger analysis
+analyze.sequences(
+  path = ab1_dir,
+  resultpath = output_dir,
+  GENETABLE = paste0(blast_db, ".fas")
+)
+
+# Step 4: Run BLAST analysis
+Blast.Files(
+  Blastpath = file.path(output_dir, "FASTA"),
+  blast16Sdb = blast_db,
+  DBname = "16S_project"
+)
+
+# Step 5: Review results
+# Check summary CSV in output_dir/Results/
+# Check BLAST results in output_dir/Results/BLAST_16S/
+```
+
+## Quality Control
+
+### Reviewing Quality Metrics
+
+```{r quality-control}
+# After running Summarize.Sanger()
+summary_data <- Summarize.Sanger(groups, GENETABLE = "reference.fas")
+
+# Check sequence lengths
+hist(summary_data$length,
+     main = "Distribution of Sequence Lengths",
+     xlab = "Length (bp)")
+
+# Identify problematic sequences
+short_seqs <- summary_data[summary_data$length < 400, ]
+print(paste("Short sequences:", nrow(short_seqs)))
+
+# Review quality scores
+# (Quality scores are included in the summary output)
+```
+
+### Troubleshooting Common Issues
+
+```{r troubleshooting}
+# Issue 1: No contigs generated
+# - Check file naming conventions
+# - Verify files are in .ab1 format
+# - Ensure forward and reverse reads are properly paired
+
+# Issue 2: Low quality scores
+# - Check raw chromatogram files
+# - Consider adjusting quality thresholds
+# - May need to re-sequence samples
+
+# Issue 3: BLAST returns no hits
+# - Verify database path is correct
+# - Check E-value threshold (may be too stringent)
+# - Ensure sequence quality is adequate
+```
+
+# Advanced Options
+
+## Custom Reference Alignment
+
+```{r custom-reference}
+# Use a custom reference for alignment
+custom_ref <- "path/to/reference_gene.fas"
+
+contig <- CB.Contig(
+  groupdataframe = groups,
+  contigName = "MySample",
+  GENETABLE = custom_ref,
+  minReads = 2
+)
+```
+
+## Parallel Processing
+
+```{r parallel}
+# For large batches, process in chunks
+all_groups <- load.files("path/to/large/dataset")
+
+# Process in batches of 10
+batch_size <- 10
+n_batches <- ceiling(nrow(all_groups) / batch_size)
+
+for (i in 1:n_batches) {
+  start_idx <- (i - 1) * batch_size + 1
+  end_idx <- min(i * batch_size, nrow(all_groups))
+
+  batch_groups <- all_groups[start_idx:end_idx, ]
+
+  Summarize.Sanger(
+    groupdataframe = batch_groups,
+    GENETABLE = "reference.fas"
+  )
+}
+```
+
+## Export Options
+
+```{r export-options}
+# Results are automatically exported to:
+# - FASTA files: for downstream analysis
+# - Alignment files: for visualization
+# - CSV summaries: for spreadsheet analysis
+# - Quality plots: for QC review
+
+# Custom export paths can be specified in each function
+```
+
+# Best Practices
+
+## File Organization
+
+```
+Project/
+├── RawData/
+│   └── ab1_files/
+│       ├── Sample001_F.ab1
+│       ├── Sample001_R.ab1
+│       └── ...
+├── Analysis/
+│   ├── FASTA/
+│   ├── Alignments/
+│   └── Results/
+└── BLAST_DB/
+    ├── 16S/
+    └── ITS/
+```
+
+## Quality Assurance
+
+1. **Always review raw chromatograms** before analysis
+2. **Check sequence lengths** - typical 16S amplicons are 400-500 bp
+3. **Verify BLAST hits** - top hits should have >97% identity for species-level
+4. **Save intermediate files** for troubleshooting
+5. **Document parameters** used in analysis
+
+## Performance Tips
+
+- Use SSD storage for faster file I/O
+- Process in batches for large datasets
+- Keep BLAST databases local
+- Regular quality checks during batch processing
+
+# Getting Help
+
+```{r help}
+# Function documentation
+?load.files
+?CB.Contig
+?analyze.sequences
+?Blast.Files
+
+# Check function arguments
+args(Summarize.Sanger)
+
+# View examples
+example(analyze.sequences)
+
+# Package documentation
+help(package = "mestools")
+```
+
+# Summary
+
+The mestools Sanger sequencing workflow provides:
+
+- Automated .ab1 file processing
+- Contig generation from paired reads
+- Quality assessment and trimming
+- FASTA export for downstream analysis
+- Integrated BLAST analysis
+- Batch processing capabilities
+- Comprehensive error handling
+- Detailed progress reporting
+
+For primer selection before sequencing, see `vignette("primer-analysis")`.
+
+For general package features, see `vignette("introduction")`.

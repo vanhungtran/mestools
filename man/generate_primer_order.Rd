@@ -7,7 +7,7 @@
 generate_primer_order(
   region = "V4",
   include_adaptors = TRUE,
-  concentration = "100 μM",
+  concentration = "100 <U+03BC>M",
   scale = "25 nmol"
 )
 }
