@@ -432,8 +432,8 @@ get_default_gse_list <- function() {
 #' Plot Combined Heatmap and Log2 Fold Change
 #'
 #' Creates a combined visualization with a heatmap of gene expression on the left
-#' and a bar plot of log2 fold change on the right. Useful for visualizing
-#' differential expression results.
+#' and a bar plot of log2 fold change on the right. Gene names are synchronized
+#' between both plots. Useful for visualizing differential expression results.
 #'
 #' @param expression_matrix Numeric matrix of gene expression values (genes as rows, samples as columns)
 #' @param log2fc Numeric vector of log2 fold change values (must match row order of expression_matrix)
@@ -441,7 +441,7 @@ get_default_gse_list <- function() {
 #' @param cluster_rows Logical. Whether to cluster rows (genes). Default: TRUE
 #' @param cluster_cols Logical. Whether to cluster columns (samples). Default: TRUE
 #' @param scale Character. Scale the data: "row", "column", or "none". Default: "row"
-#' @param show_rownames Logical. Show gene names. Default: TRUE (auto-hidden if > 50 genes)
+#' @param show_rownames Logical. Show gene names on both heatmap and FC plot. Default: TRUE (auto-hidden if > 50 genes)
 #' @param show_colnames Logical. Show sample names. Default: TRUE
 #' @param heatmap_colors Vector of colors for heatmap gradient. Default: blue-white-red
 #' @param fc_colors Vector of 2 colors for fold change bars (down, up). Default: blue and red
@@ -571,6 +571,9 @@ plot_heatmap_with_fc <- function(expression_matrix,
   )
 
   # Create the fold change bar plot
+  # Show gene names on FC plot only if they're shown on heatmap
+  show_fc_labels <- show_rownames
+
   fc_plot <- ggplot2::ggplot(fc_data, ggplot2::aes(x = gene, y = log2fc)) +
     ggplot2::geom_hline(yintercept = 0, color = "gray40", linewidth = 0.5) +
     ggplot2::geom_hline(yintercept = c(-fc_threshold, fc_threshold),
@@ -590,11 +593,11 @@ plot_heatmap_with_fc <- function(expression_matrix,
     ) +
     ggplot2::theme_minimal(base_size = 10) +
     ggplot2::theme(
-      axis.text.y = ggplot2::element_blank(),
+      axis.text.y = if (show_fc_labels) ggplot2::element_text(size = 9, hjust = 1) else ggplot2::element_blank(),
       axis.ticks.y = ggplot2::element_blank(),
       panel.grid.major.y = ggplot2::element_blank(),
       panel.grid.minor = ggplot2::element_blank(),
-      plot.margin = ggplot2::margin(t = 5, r = 10, b = 5, l = 0),
+      plot.margin = ggplot2::margin(t = 5, r = 10, b = 5, l = 5),
       axis.title.x = ggplot2::element_text(size = 9)
     )
 

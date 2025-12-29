@@ -13,6 +13,7 @@ Creates a publication-ready figure with:
 The function automatically:
 - ✅ Clusters genes and samples hierarchically
 - ✅ Synchronizes the fold change order with heatmap
+- ✅ **Matches gene names between both plots**
 - ✅ Adds sample group annotations
 - ✅ Highlights significant fold changes
 - ✅ Uses publication-standard colors
