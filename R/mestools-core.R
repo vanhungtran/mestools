@@ -432,8 +432,9 @@ get_default_gse_list <- function() {
 #' Plot Combined Heatmap and Log2 Fold Change
 #'
 #' Creates a combined visualization with a heatmap of gene expression on the left
-#' and a bar plot of log2 fold change on the right. Gene names are synchronized
-#' between both plots. Useful for visualizing differential expression results.
+#' and a bar plot of log2 fold change on the right. Gene names and plot heights are
+#' perfectly synchronized between both plots. Useful for visualizing differential
+#' expression results.
 #'
 #' @param expression_matrix Numeric matrix of gene expression values (genes as rows, samples as columns)
 #' @param log2fc Numeric vector of log2 fold change values (must match row order of expression_matrix)
@@ -574,6 +575,9 @@ plot_heatmap_with_fc <- function(expression_matrix,
   # Show gene names on FC plot only if they're shown on heatmap
   show_fc_labels <- show_rownames
 
+  # Reverse the factor levels so genes appear in same order as heatmap (top to bottom)
+  fc_data$gene <- factor(fc_data$gene, levels = rev(levels(fc_data$gene)))
+
   fc_plot <- ggplot2::ggplot(fc_data, ggplot2::aes(x = gene, y = log2fc)) +
     ggplot2::geom_hline(yintercept = 0, color = "gray40", linewidth = 0.5) +
     ggplot2::geom_hline(yintercept = c(-fc_threshold, fc_threshold),
@@ -586,6 +590,7 @@ plot_heatmap_with_fc <- function(expression_matrix,
     ) +
     ggplot2::scale_fill_manual(values = fc_colors) +
     ggplot2::coord_flip() +
+    ggplot2::scale_x_discrete(drop = FALSE) +
     ggplot2::labs(
       x = NULL,
       y = "log2FC",
@@ -604,14 +609,38 @@ plot_heatmap_with_fc <- function(expression_matrix,
   # Convert fold change plot to grob
   fc_grob <- ggplot2::ggplotGrob(fc_plot)
 
-  # Combine plots side by side
+  # Extract heatmap grob
+  hm_grob <- hm$gtable
+
+  # Combine plots side by side with matched heights
   grid::grid.newpage()
+
+  # Get the heatmap body height
+  hm_heights <- hm_grob$heights
+  hm_widths <- hm_grob$widths
+
+  # Match the plot area heights
+  # Find the panel in heatmap gtable
+  hm_panel_pos <- grep("panel", hm_grob$layout$name)
+  if (length(hm_panel_pos) > 0) {
+    panel_row <- hm_grob$layout$t[hm_panel_pos[1]]
+    panel_height <- hm_grob$heights[panel_row]
+
+    # Set fc_grob panel to match heatmap panel height
+    fc_panel_pos <- grep("panel", fc_grob$layout$name)
+    if (length(fc_panel_pos) > 0) {
+      fc_panel_row <- fc_grob$layout$t[fc_panel_pos[1]]
+      fc_grob$heights[fc_panel_row] <- panel_height
+    }
+  }
+
+  # Create layout
   grid::pushViewport(grid::viewport(layout = grid::grid.layout(1, 2,
                                                                widths = grid::unit(width_ratio, c("null", "null")))))
 
   # Draw heatmap on the left
   grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 1))
-  grid::grid.draw(hm$gtable)
+  grid::grid.draw(hm_grob)
   grid::popViewport()
 
   # Draw fold change plot on the right
