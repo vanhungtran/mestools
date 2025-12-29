@@ -588,6 +588,14 @@ plot_heatmap_with_fc <- function(expression_matrix,
       width = 0.8,
       show.legend = FALSE
     ) +
+    ggplot2::geom_text(
+      ggplot2::aes(
+        label = sprintf("%.2f", log2fc),
+        hjust = ifelse(log2fc > 0, -0.1, 1.1)
+      ),
+      size = 3,
+      color = "black"
+    ) +
     ggplot2::scale_fill_manual(values = fc_colors) +
     ggplot2::coord_flip() +
     ggplot2::scale_x_discrete(drop = FALSE) +
