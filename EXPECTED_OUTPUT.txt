@@ -1,0 +1,188 @@
+================================================================================
+                   EXPECTED OUTPUT - plot_heatmap_with_fc()
+================================================================================
+
+When you run the function, you'll see a combined visualization like this:
+
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│         Example: Differential Gene Expression                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┬────────────────────────────────────┐
+│          HEATMAP (Expression)           │      LOG2 FOLD CHANGE              │
+│                                         │                                    │
+│           Control    Treatment          │                                    │
+│         ┌────────┬─────────────┐        │   -3  -2  -1   0   1   2   3     │
+│         │        │   [Group]   │        │    │   │   │   │   │   │   │     │
+│  Ctrl_1 Ctrl_2 Ctrl_3 Ctrl_4   │        │    ├───┼───┼───┼───┼───┼───┤     │
+│  Treat_1 Treat_2 Treat_3 Treat_4        │                                    │
+│         │                               │                                    │
+│  ┌──────────────────────────────┐       │ Gene_5  ████████████████▸         │
+│  │  ░░ ░░ ░░ ██ ██ ██ ██ ██    │       │ Gene_1  ███████████████▸          │
+│G │  ░░ ░░ ░░ ██ ██ ██ ██ ██    │       │ Gene_7  ██████████████▸           │
+│e │  ░░ ░░ ░░ ▓▓ ▓▓ ▓▓ ▓▓ ▓▓    │       │ Gene_2  █████████████▸            │
+│n │  ░░ ░░ ░░ ▓▓ ▓▓ ▓▓ ▓▓ ▓▓    │       │ Gene_10 ████████████▸             │
+│e │  ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒    │       │ Gene_3  ████████████▸             │
+│s │  ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒    │       │ Gene_9  ███████████▸              │
+│  │  ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒    │       │ Gene_4  ██████████▸               │
+│  │  ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒    │       │ Gene_8  █████████▸                │
+│  │  ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒ ▒▒    │       │ Gene_6  ████████▸                 │
+│  │  ██ ██ ██ ░░ ░░ ░░ ░░ ░░    │       │         :      :▐                 │
+│  │  ██ ██ ██ ░░ ░░ ░░ ░░ ░░    │       │ Gene_11 ▌      : ▐                │
+│  │  ▓▓ ▓▓ ▓▓ ░░ ░░ ░░ ░░ ░░    │       │ Gene_13 ▌      : ▐                │
+│  │  ▓▓ ▓▓ ▓▓ ░░ ░░ ░░ ░░ ░░    │       │ Gene_14 ▌      : ▐                │
+│  │  ▓▓ ▓▓ ▓▓ ░░ ░░ ░░ ░░ ░░    │       │ Gene_12 ▌      : ▐                │
+│  │  ▓▓ ▓▓ ▓▓ ░░ ░░ ░░ ░░ ░░    │       │ Gene_18 ◂██████:                  │
+│  └──────────────────────────────┘       │ Gene_16 ◂██████████               │
+│                                         │ Gene_20 ◂███████████              │
+│  [Dendrogram shows gene clustering]     │ Gene_15 ◂███████████              │
+│                                         │ Gene_19 ◂████████████             │
+│  Color Key:                             │ Gene_17 ◂█████████████            │
+│  ░░ Low  ▒▒ Medium  ▓▓ High  ██ V.High  │                                    │
+│                                         │         Threshold lines (±1.5)     │
+└─────────────────────────────────────────┴────────────────────────────────────┘
+
+LEGEND:
+  Heatmap Colors:               Fold Change Colors:
+  ░░ Blue   = Low expression    ◂ Blue bars = Downregulated (negative log2FC)
+  ▒▒ White  = Medium            ▸ Red bars  = Upregulated (positive log2FC)
+  ▓▓ Pink   = High              : Dashed vertical lines = threshold (±1.5)
+  ██ Red    = Very high         ▐ Solid vertical line = zero (no change)
+
+
+INTERPRETATION:
+───────────────
+
+TOP SECTION (Genes 1-10):
+  • Heatmap: Blue (left/Control) → Red (right/Treatment)
+  • FC Plot: Long red bars pointing right
+  → These genes are UPREGULATED in treatment group
+
+MIDDLE SECTION (Genes 11-14):
+  • Heatmap: Similar colors across all samples
+  • FC Plot: Short bars near zero
+  → These genes show NO SIGNIFICANT CHANGE
+
+BOTTOM SECTION (Genes 15-20):
+  • Heatmap: Red (left/Control) → Blue (right/Treatment)
+  • FC Plot: Long blue bars pointing left
+  → These genes are DOWNREGULATED in treatment group
+
+
+KEY FEATURES HIGHLIGHTED:
+─────────────────────────
+
+1. HIERARCHICAL CLUSTERING
+   - Genes are reordered by similarity
+   - Similar expression patterns grouped together
+   - Dendrogram shows relationships
+
+2. SYNCHRONIZED ORDERING
+   - FC bars match EXACT order of heatmap rows
+   - Easy to identify specific genes
+
+3. SAMPLE ANNOTATION
+   - Colored bar above heatmap shows groups
+   - Control vs Treatment clearly distinguished
+
+4. THRESHOLD VISUALIZATION
+   - Dashed lines at ±1.5 log2FC
+   - Genes beyond threshold = biologically significant
+
+5. DUAL INFORMATION
+   - LEFT: Expression patterns across samples
+   - RIGHT: Magnitude of differential expression
+
+
+CONSOLE OUTPUT:
+───────────────
+
+When running RUN_DEMO.R, you'll see:
+
+===========================================
+Creating test data...
+===========================================
+
+Data summary:
+  - Genes:  20
+  - Samples:  8
+  - Groups:  Control Treatment
+  - log2FC range:  -2.48 2.99
+
+===========================================
+Generating plot...
+===========================================
+
+Note: Row names hidden (>50 genes). Set show_rownames=TRUE to override.
+
+===========================================
+SUCCESS! Plot generated.
+===========================================
+
+What you should see:
+  LEFT: Heatmap showing expression patterns
+        - Blue = low expression
+        - Red = high expression
+        - Control vs Treatment groups annotated
+
+  RIGHT: Log2FC bars
+        - Red bars (right) = upregulated genes
+        - Blue bars (left) = downregulated genes
+        - Dashed lines at +/- 1.5 threshold
+
+Returned data:
+  - result$heatmap: pheatmap object
+  - result$fc_plot: ggplot2 object
+  - result$fc_data: fold change data frame
+  - result$row_order: gene clustering order
+
+First 5 genes in plot order:
+       gene    log2fc significant
+1    Gene_5  2.879469        TRUE
+2    Gene_1  2.786095        TRUE
+3    Gene_7  2.644337        TRUE
+4    Gene_2  2.584229        TRUE
+5   Gene_10  2.539816        TRUE
+
+
+HOW TO RUN:
+───────────
+
+Option 1 - From R Console:
+  > setwd("c:/Users/tranh/OneDrive/mestools")
+  > source("RUN_DEMO.R")
+
+Option 2 - From RStudio:
+  • Open RUN_DEMO.R
+  • Click "Source" button
+  • Or select all and Ctrl+Enter
+
+Option 3 - From Command Line (if R is in PATH):
+  $ cd c:\Users\tranh\OneDrive\mestools
+  $ Rscript RUN_DEMO.R
+
+Option 4 - Interactive:
+  > devtools::load_all(".")
+  > # Then run the example code from the function documentation
+
+
+SAVING THE PLOT:
+────────────────
+
+# High-quality PDF for publication
+pdf("figure1.pdf", width = 10, height = 8)
+plot_heatmap_with_fc(expression, log2fc, sample_groups = groups)
+dev.off()
+
+# PNG for presentations
+png("figure1.png", width = 1200, height = 900, res = 150)
+plot_heatmap_with_fc(expression, log2fc, sample_groups = groups)
+dev.off()
+
+# TIFF for journals
+tiff("figure1.tiff", width = 10, height = 8, units = "in", res = 300)
+plot_heatmap_with_fc(expression, log2fc, sample_groups = groups)
+dev.off()
+
+================================================================================

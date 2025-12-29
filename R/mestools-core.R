@@ -428,3 +428,201 @@ get_default_gse_list <- function() {
     "GSE15719", "GSE95759", "GSE67785", "GSE157194", "GSE182740", "GSE261704",
     "GSE283265")
 }
+
+#' Plot Combined Heatmap and Log2 Fold Change
+#'
+#' Creates a combined visualization with a heatmap of gene expression on the left
+#' and a bar plot of log2 fold change on the right. Useful for visualizing
+#' differential expression results.
+#'
+#' @param expression_matrix Numeric matrix of gene expression values (genes as rows, samples as columns)
+#' @param log2fc Numeric vector of log2 fold change values (must match row order of expression_matrix)
+#' @param sample_groups Optional character vector indicating sample groups for column annotation
+#' @param cluster_rows Logical. Whether to cluster rows (genes). Default: TRUE
+#' @param cluster_cols Logical. Whether to cluster columns (samples). Default: TRUE
+#' @param scale Character. Scale the data: "row", "column", or "none". Default: "row"
+#' @param show_rownames Logical. Show gene names. Default: TRUE (auto-hidden if > 50 genes)
+#' @param show_colnames Logical. Show sample names. Default: TRUE
+#' @param heatmap_colors Vector of colors for heatmap gradient. Default: blue-white-red
+#' @param fc_colors Vector of 2 colors for fold change bars (down, up). Default: blue and red
+#' @param fc_threshold Numeric. Highlight genes with |log2FC| above this threshold. Default: 1
+#' @param title Character. Main plot title. Default: NULL
+#' @param gene_labels Optional character vector of gene names (uses rownames if NULL)
+#' @param width_ratio Numeric vector of length 2 specifying width ratio of heatmap to FC plot. Default: c(4, 1)
+#' @param ... Additional arguments passed to pheatmap
+#'
+#' @return Invisibly returns a list containing the heatmap object and processed data
+#' @export
+#' @examples
+#' \dontrun{
+#' # Create example data
+#' set.seed(123)
+#' expression <- matrix(rnorm(200), nrow = 20, ncol = 10)
+#' rownames(expression) <- paste0("Gene", 1:20)
+#' colnames(expression) <- paste0("Sample", 1:10)
+#' log2fc <- rnorm(20, mean = 0, sd = 2)
+#' groups <- rep(c("Control", "Treatment"), each = 5)
+#'
+#' # Plot combined heatmap and fold change
+#' plot_heatmap_with_fc(
+#'   expression_matrix = expression,
+#'   log2fc = log2fc,
+#'   sample_groups = groups,
+#'   fc_threshold = 1.5,
+#'   title = "Differential Gene Expression"
+#' )
+#' }
+plot_heatmap_with_fc <- function(expression_matrix,
+                                 log2fc,
+                                 sample_groups = NULL,
+                                 cluster_rows = TRUE,
+                                 cluster_cols = TRUE,
+                                 scale = c("row", "column", "none"),
+                                 show_rownames = TRUE,
+                                 show_colnames = TRUE,
+                                 heatmap_colors = NULL,
+                                 fc_colors = c("#2166AC", "#B2182B"),
+                                 fc_threshold = 1,
+                                 title = NULL,
+                                 gene_labels = NULL,
+                                 width_ratio = c(4, 1),
+                                 ...) {
+
+  # Check required packages
+  required_packages <- c("pheatmap", "grid", "gridExtra")
+  for (pkg in required_packages) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      stop("Package '", pkg, "' is required. Install with: install.packages('", pkg, "')")
+    }
+  }
+
+  # Validate inputs
+  if (!is.matrix(expression_matrix)) {
+    expression_matrix <- as.matrix(expression_matrix)
+  }
+
+  if (length(log2fc) != nrow(expression_matrix)) {
+    stop("Length of log2fc must match number of rows in expression_matrix")
+  }
+
+  scale <- match.arg(scale)
+
+  # Set gene labels
+  if (is.null(gene_labels)) {
+    gene_labels <- rownames(expression_matrix)
+    if (is.null(gene_labels)) {
+      gene_labels <- paste0("Gene", seq_len(nrow(expression_matrix)))
+    }
+  }
+
+  # Auto-hide row names if too many genes
+  if (show_rownames && nrow(expression_matrix) > 50) {
+    show_rownames <- FALSE
+    message("Note: Row names hidden (>50 genes). Set show_rownames=TRUE to override.")
+  }
+
+  # Default heatmap colors
+  if (is.null(heatmap_colors)) {
+    heatmap_colors <- grDevices::colorRampPalette(c("#2166AC", "white", "#B2182B"))(100)
+  }
+
+  # Prepare column annotation if sample groups provided
+  annotation_col <- NULL
+  if (!is.null(sample_groups)) {
+    if (length(sample_groups) != ncol(expression_matrix)) {
+      warning("Length of sample_groups doesn't match number of columns. Ignoring sample_groups.")
+    } else {
+      annotation_col <- data.frame(Group = sample_groups)
+      rownames(annotation_col) <- colnames(expression_matrix)
+    }
+  }
+
+  # Create the main heatmap
+  hm <- pheatmap::pheatmap(
+    expression_matrix,
+    cluster_rows = cluster_rows,
+    cluster_cols = cluster_cols,
+    scale = scale,
+    show_rownames = show_rownames,
+    show_colnames = show_colnames,
+    color = heatmap_colors,
+    annotation_col = annotation_col,
+    main = title,
+    silent = TRUE,
+    ...
+  )
+
+  # Get the row order from clustering
+  if (cluster_rows) {
+    row_order <- hm$tree_row$order
+  } else {
+    row_order <- seq_len(nrow(expression_matrix))
+  }
+
+  # Reorder log2fc to match heatmap
+  log2fc_ordered <- log2fc[row_order]
+  genes_ordered <- gene_labels[row_order]
+
+  # Create fold change data frame
+  fc_data <- data.frame(
+    gene = factor(genes_ordered, levels = genes_ordered),
+    log2fc = log2fc_ordered,
+    significant = abs(log2fc_ordered) > fc_threshold
+  )
+
+  # Create the fold change bar plot
+  fc_plot <- ggplot2::ggplot(fc_data, ggplot2::aes(x = gene, y = log2fc)) +
+    ggplot2::geom_hline(yintercept = 0, color = "gray40", linewidth = 0.5) +
+    ggplot2::geom_hline(yintercept = c(-fc_threshold, fc_threshold),
+                       color = "gray70", linetype = "dashed", linewidth = 0.3) +
+    ggplot2::geom_bar(
+      stat = "identity",
+      ggplot2::aes(fill = log2fc > 0),
+      width = 0.8,
+      show.legend = FALSE
+    ) +
+    ggplot2::scale_fill_manual(values = fc_colors) +
+    ggplot2::coord_flip() +
+    ggplot2::labs(
+      x = NULL,
+      y = "log2FC",
+      title = NULL
+    ) +
+    ggplot2::theme_minimal(base_size = 10) +
+    ggplot2::theme(
+      axis.text.y = ggplot2::element_blank(),
+      axis.ticks.y = ggplot2::element_blank(),
+      panel.grid.major.y = ggplot2::element_blank(),
+      panel.grid.minor = ggplot2::element_blank(),
+      plot.margin = ggplot2::margin(t = 5, r = 10, b = 5, l = 0),
+      axis.title.x = ggplot2::element_text(size = 9)
+    )
+
+  # Convert fold change plot to grob
+  fc_grob <- ggplot2::ggplotGrob(fc_plot)
+
+  # Combine plots side by side
+  grid::grid.newpage()
+  grid::pushViewport(grid::viewport(layout = grid::grid.layout(1, 2,
+                                                               widths = grid::unit(width_ratio, c("null", "null")))))
+
+  # Draw heatmap on the left
+  grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 1))
+  grid::grid.draw(hm$gtable)
+  grid::popViewport()
+
+  # Draw fold change plot on the right
+  grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 2))
+  grid::grid.draw(fc_grob)
+  grid::popViewport()
+
+  # Return results invisibly
+  invisible(list(
+    heatmap = hm,
+    fc_plot = fc_plot,
+    fc_data = fc_data,
+    row_order = row_order,
+    expression_matrix = expression_matrix,
+    log2fc = log2fc
+  ))
+}

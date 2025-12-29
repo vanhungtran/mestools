@@ -1,0 +1,133 @@
+================================================================================
+  Combined Heatmap and Log2 Fold Change Visualization
+================================================================================
+
+INPUT DATA:
+-----------
+Expression Matrix (genes × samples):        Log2 Fold Change Vector:
+
+        S1  S2  S3  S4  S5  S6  S7  S8        Gene1:  +2.3
+Gene1 [ 12  11  13  18  19  17  18  20 ]     Gene2:  +1.8
+Gene2 [ 10   9  11  14  15  13  14  16 ]     Gene3:  +0.2
+Gene3 [  8   7   9   8   9   8   9  10 ]     Gene4:  -1.5
+Gene4 [ 15  14  16   8   7   9   8   9 ]     Gene5:  -2.1
+Gene5 [ 13  12  14   7   6   8   7   8 ]
+
+Sample Groups:
+      [Control] [Treatment]
+
+
+PROCESSING:
+-----------
+1. Hierarchical clustering (optional)
+2. Row/column scaling (optional)
+3. Synchronize log2FC order with heatmap clustering
+
+
+OUTPUT VISUALIZATION:
+---------------------
+
+┌────────────────────────────────────────────────┬──────────────────────┐
+│                  HEATMAP                       │    LOG2 FOLD CHANGE  │
+│         (Gene Expression Values)               │                      │
+│                                                │                      │
+│              ┌─── Treatment ──┐                │                      │
+│     ┌Control─┤                │                │      -3  -2  -1  0  1  2  3│
+│                                                │                      │
+│     S1 S2 S3 S4 S5 S6 S7 S8                    │ Gene1 ████████████▸  │
+│    ┌──┬──┬──┬──┬──┬──┬──┬──┐                  │ Gene2 ████████▸      │
+│ G1 │░░│░░│░░│██│██│██│██│██│                  │ Gene3 ▸              │
+│ G2 │░░│░░│░░│▓▓│▓▓│▓▓│▓▓│▓▓│                  │ Gene4  ◂██████       │
+│ G3 │▒▒│▒▒│▒▒│▒▒│▒▒│▒▒│▒▒│▒▒│                  │ Gene5   ◂████████████│
+│ G4 │██│██│██│░░│░░│░░│░░│░░│                  │       |     |    |   │
+│ G5 │▓▓│▓▓│▓▓│░░│░░│░░│░░│░░│                  │      -1     0    1   │
+│    └──┴──┴──┴──┴──┴──┴──┴──┘                  │  Threshold lines     │
+│                                                │                      │
+│ Color Key:                                     │ Colors:              │
+│ ░░ Low   ▒▒ Medium   ▓▓ High   ██ Very High    │ ◂ Blue (down)        │
+│                                                │ ▸ Red (up)           │
+└────────────────────────────────────────────────┴──────────────────────┘
+
+
+FEATURES:
+---------
+✓ Expression heatmap with hierarchical clustering
+✓ Sample group annotations (colored column header)
+✓ Log2FC bars automatically ordered to match heatmap
+✓ Threshold indicators (dashed lines at ±threshold)
+✓ Customizable color schemes
+✓ Adjustable panel width ratios
+✓ Auto-hide gene names for large datasets (>50 genes)
+
+
+TYPICAL USE CASES:
+------------------
+
+1. Differential Expression Analysis
+   → Visualize DE results from DESeq2, edgeR, limma
+
+2. Biomarker Discovery
+   → Show expression patterns + magnitude of change
+
+3. Time-course Experiments
+   → Compare expression across conditions
+
+4. Drug Response Studies
+   → Show treated vs untreated samples
+
+5. Disease vs Normal Comparison
+   → Identify dysregulated genes
+
+
+INTERPRETATION GUIDE:
+---------------------
+
+HEATMAP (Left):
+• Each row = one gene
+• Each column = one sample
+• Color intensity = expression level
+• Clustering reveals gene/sample groups with similar patterns
+
+LOG2FC (Right):
+• Bar length = magnitude of change
+• Blue (left) = downregulated
+• Red (right) = upregulated
+• Dashed lines = significance threshold
+• Bars beyond threshold = significant changes
+
+
+CUSTOMIZATION OPTIONS:
+----------------------
+
+Colors:
+  heatmap_colors = colorRampPalette(c("blue", "white", "red"))(100)
+  fc_colors = c("#2166AC", "#B2182B")
+
+Layout:
+  width_ratio = c(4, 1)  # Heatmap:FC ratio
+  show_rownames = TRUE   # Show gene names
+  show_colnames = TRUE   # Show sample names
+
+Analysis:
+  cluster_rows = TRUE    # Cluster genes
+  cluster_cols = TRUE    # Cluster samples
+  scale = "row"          # Normalize by gene
+  fc_threshold = 1       # Significance cutoff
+
+
+EXAMPLE OUTPUT INTERPRETATION:
+------------------------------
+
+If you see:
+1. Red in heatmap (right side) + long red bar → Gene highly upregulated
+2. Blue in heatmap (left side) + long blue bar → Gene highly downregulated
+3. Mixed heatmap colors + short bar → Expression varies but no consistent change
+4. Bar beyond threshold lines → Statistically/biologically significant
+
+This visualization makes it easy to:
+✓ Identify which genes changed the most
+✓ See expression patterns across samples
+✓ Distinguish significant from non-significant changes
+✓ Present results in publications
+
+================================================================================

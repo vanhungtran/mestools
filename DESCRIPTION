@@ -30,7 +30,11 @@ Suggests:
     gh,
     pkgload,
     knitr,
-    rmarkdown
+    rmarkdown,
+    pheatmap,
+    ggplot2,
+    grid,
+    gridExtra
 VignetteBuilder: knitr
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
