@@ -114,6 +114,10 @@ v4_primers <- select_16s_primers(application = "universal", region = "V4")
 - Earth Microbiome Project standard primers included
 - Human Microbiome Project primers included
 
+## Visualization Example
+
+![Heatmap Example](heatmap.png)
+
 ## Core Functions
 
 ### Data Analysis Examples

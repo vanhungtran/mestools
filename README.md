@@ -100,6 +100,10 @@ v4_primers <- get_16s_primers(region = "V4")
 - Earth Microbiome Project standard primers included
 - Human Microbiome Project primers included
 
+## Visualization Example
+
+![Heatmap Example](heatmap.png)
+
 ## Core Functions
 
 ### Data Analysis
