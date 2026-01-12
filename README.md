@@ -100,10 +100,6 @@ v4_primers <- get_16s_primers(region = "V4")
 - Earth Microbiome Project standard primers included
 - Human Microbiome Project primers included
 
-## Visualization Example
-
-![Heatmap Example](heatmap.png)
-
 ## Core Functions
 
 ### Data Analysis
@@ -299,6 +295,66 @@ recommendations <- recommend_primers(
   read_length = 250
 )
 ```
+
+#### Differential Expression Visualization
+
+Create publication-ready heatmaps with fold change and volcano plots:
+
+```r
+# Basic usage with significance annotations
+plot_heatmap_with_fc(
+  expression_matrix = expr_matrix,
+  log2fc = fold_changes,
+  pvalues = pvalues,
+  sample_groups = groups,
+  title = "Differential Expression"
+)
+
+# Advanced: Filter top genes with volcano plot
+plot_heatmap_with_fc(
+  expression_matrix = expr_matrix,
+  log2fc = fold_changes,
+  pvalues = pvalues,
+  padj = adjusted_pvalues,
+  top_n = 30,                          # Show top 30 genes
+  highlight_genes = c("TP53", "BRCA1"), # Highlight specific genes
+  color_theme = "viridis",              # Professional color theme
+  plot_layout = "heatmap_fc_volcano",   # 3-panel layout
+  title = "Top 30 Differentially Expressed Genes"
+)
+
+# Publication-ready figure
+plot_heatmap_with_fc(
+  expression_matrix = expr_matrix,
+  log2fc = fold_changes,
+  pvalues = pvalues,
+  padj = adjusted_pvalues,
+  top_n = 25,
+  color_theme = "publication",  # Grayscale for journals
+  gene_categories = pathways,   # Add pathway annotations
+  title = "Differentially Expressed Genes"
+)
+```
+
+**Key Features:**
+
+- Statistical significance stars (*, **, ***)
+- Gene filtering by fold change or top N
+- Gene highlighting with custom colors
+- 5 color themes (default, viridis, RdBu, publication, colorblind)
+- Volcano plot integration
+- Multi-factor annotations
+- Synchronized 3-panel layouts
+
+**Color Themes:**
+
+- `"default"` - Blue-white-red (classic)
+- `"viridis"` - Perceptually uniform (best for data visualization)
+- `"RdBu"` - Red-Blue diverging (ColorBrewer standard)
+- `"publication"` - Grayscale (journal-ready)
+- `"colorblind"` - Accessible palette (inclusive design)
+
+![Heatmap Example](man/figures/heatmap.png)
 
 ## Advanced Usage
 

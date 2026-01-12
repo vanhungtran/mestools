@@ -429,12 +429,12 @@ get_default_gse_list <- function() {
     "GSE283265")
 }
 
-#' Plot Combined Heatmap and Log2 Fold Change
+#' Plot Combined Heatmap and Log2 Fold Change with Enhanced Features
 #'
-#' Creates a combined visualization with a heatmap of gene expression on the left
-#' and a bar plot of log2 fold change on the right. Gene names and plot heights are
-#' perfectly synchronized between both plots. Useful for visualizing differential
-#' expression results.
+#' Creates a comprehensive visualization of differential expression results with
+#' synchronized heatmap and fold change plots. Supports statistical annotations,
+#' gene filtering, highlighting, multiple color themes, volcano plots, and
+#' enhanced row/column annotations.
 #'
 #' @param expression_matrix Numeric matrix of gene expression values (genes as rows, samples as columns)
 #' @param log2fc Numeric vector of log2 fold change values (must match row order of expression_matrix)
@@ -442,21 +442,45 @@ get_default_gse_list <- function() {
 #' @param cluster_rows Logical. Whether to cluster rows (genes). Default: TRUE
 #' @param cluster_cols Logical. Whether to cluster columns (samples). Default: TRUE
 #' @param scale Character. Scale the data: "row", "column", or "none". Default: "row"
-#' @param show_rownames Logical. Show gene names on both heatmap and FC plot. Default: TRUE (auto-hidden if > 50 genes)
+#' @param show_rownames Logical. Show gene names. Default: TRUE (auto-hidden if > 50 genes)
 #' @param show_colnames Logical. Show sample names. Default: TRUE
-#' @param heatmap_colors Vector of colors for heatmap gradient. Default: blue-white-red
-#' @param fc_colors Vector of 2 colors for fold change bars (down, up). Default: blue and red
-#' @param fc_threshold Numeric. Highlight genes with |log2FC| above this threshold. Default: 1
+#' @param heatmap_colors Vector of colors for heatmap gradient. Auto-set by color_theme if NULL
+#' @param fc_colors Vector of 2 colors for fold change bars (down, up). Default: c("#2166AC", "#B2182B")
+#' @param fc_threshold Numeric. Fold change significance threshold. Default: 1
 #' @param title Character. Main plot title. Default: NULL
 #' @param gene_labels Optional character vector of gene names (uses rownames if NULL)
-#' @param width_ratio Numeric vector of length 2 specifying width ratio of heatmap to FC plot. Default: c(4, 1)
+#' @param width_ratio Numeric vector of length 2 for heatmap:FC width ratio. Default: c(4, 1)
+#' @param pvalues Optional numeric vector of p-values for significance testing
+#' @param padj Optional numeric vector of adjusted p-values (FDR, Bonferroni, etc.)
+#' @param sig_thresholds Numeric vector of 3 significance thresholds for *, **, ***. Default: c(0.05, 0.01, 0.001)
+#' @param show_pval_text Logical. Display p-value text on FC bars. Default: FALSE
+#' @param filter_by_fc Logical. Show only genes exceeding fc_threshold. Default: FALSE
+#' @param top_n Integer. Show only top N genes by |log2FC|. Default: NULL (show all)
+#' @param highlight_genes Character vector of gene names to highlight. Default: NULL
+#' @param highlight_color Color for highlighted genes. Default: "#FF6B35"
+#' @param gene_categories Character vector of categories for row annotation. Default: NULL
+#' @param color_theme Character. Preset color theme: "default", "viridis", "RdBu", "publication", "colorblind". Default: "default"
+#' @param annotation_row Data frame of row annotations (genes). Default: NULL
+#' @param annotation_col_enhanced Data frame of column annotations (samples). Overrides sample_groups. Default: NULL
+#' @param annotation_colors Named list of colors for annotations. Default: NULL
+#' @param plot_layout Character. Layout type: "heatmap_fc" or "heatmap_fc_volcano". Default: "heatmap_fc"
 #' @param ... Additional arguments passed to pheatmap
 #'
-#' @return Invisibly returns a list containing the heatmap object and processed data
+#' @return Invisibly returns a list with components:
+#'   \item{heatmap}{pheatmap object}
+#'   \item{fc_plot}{ggplot2 fold change plot}
+#'   \item{fc_data}{Data frame with fold change data}
+#'   \item{volcano_plot}{ggplot2 volcano plot (if plot_layout includes volcano)}
+#'   \item{row_order}{Gene order after clustering}
+#'   \item{expression_matrix}{Expression matrix used}
+#'   \item{log2fc}{Log2 fold changes}
+#'   \item{pvalues}{P-values (if provided)}
+#'   \item{padj}{Adjusted p-values (if provided)}
+#'
 #' @export
 #' @examples
 #' \dontrun{
-#' # Create example data
+#' # Basic usage
 #' set.seed(123)
 #' expression <- matrix(rnorm(200), nrow = 20, ncol = 10)
 #' rownames(expression) <- paste0("Gene", 1:20)
@@ -464,13 +488,33 @@ get_default_gse_list <- function() {
 #' log2fc <- rnorm(20, mean = 0, sd = 2)
 #' groups <- rep(c("Control", "Treatment"), each = 5)
 #'
-#' # Plot combined heatmap and fold change
 #' plot_heatmap_with_fc(
 #'   expression_matrix = expression,
 #'   log2fc = log2fc,
 #'   sample_groups = groups,
-#'   fc_threshold = 1.5,
 #'   title = "Differential Gene Expression"
+#' )
+#'
+#' # With statistical significance
+#' pvals <- runif(20, 0.001, 0.1)
+#' plot_heatmap_with_fc(
+#'   expression_matrix = expression,
+#'   log2fc = log2fc,
+#'   pvalues = pvals,
+#'   sample_groups = groups,
+#'   title = "Expression with Significance"
+#' )
+#'
+#' # With gene highlighting and volcano plot
+#' genes_highlight <- c("Gene5", "Gene10", "Gene15")
+#' plot_heatmap_with_fc(
+#'   expression_matrix = expression,
+#'   log2fc = log2fc,
+#'   pvalues = pvals,
+#'   highlight_genes = genes_highlight,
+#'   plot_layout = "heatmap_fc_volcano",
+#'   color_theme = "viridis",
+#'   title = "Comprehensive Analysis"
 #' )
 #' }
 plot_heatmap_with_fc <- function(expression_matrix,
@@ -565,7 +609,7 @@ plot_heatmap_with_fc <- function(expression_matrix,
     if (!is.null(top_n)) {
       # Sort by absolute log2FC
       fc_order <- order(abs(log2fc), decreasing = TRUE)
-      top_indices <- fc_order[1:min(top_n, length(fc_order))]
+      top_indices <- fc_order[seq_len(min(top_n, length(fc_order)))]
       keep_genes <- original_indices %in% top_indices
     }
 
@@ -697,9 +741,13 @@ plot_heatmap_with_fc <- function(expression_matrix,
     log2fc = log2fc_ordered,
     significant = abs(log2fc_ordered) > fc_threshold,
     sig_stars = sig_stars,
-    pval = pval_ordered,
     stringsAsFactors = FALSE
   )
+
+  # Add pval column only if available
+  if (!is.null(pval_ordered)) {
+    fc_data$pval <- pval_ordered
+  }
 
   # Create the fold change bar plot
   # Show gene names on FC plot only if they're shown on heatmap
@@ -765,7 +813,7 @@ plot_heatmap_with_fc <- function(expression_matrix,
   }
 
   # Add p-value text if requested
-  if (show_pval_text && !is.null(fc_data$pval)) {
+  if (show_pval_text && !is.null(pval_ordered)) {
     fc_plot <- fc_plot +
       ggplot2::geom_text(
         ggplot2::aes(
