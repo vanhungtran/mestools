@@ -487,10 +487,37 @@ plot_heatmap_with_fc <- function(expression_matrix,
                                  title = NULL,
                                  gene_labels = NULL,
                                  width_ratio = c(4, 1),
+                                 # Statistical annotations
+                                 pvalues = NULL,
+                                 padj = NULL,
+                                 sig_thresholds = c(0.05, 0.01, 0.001),
+                                 show_pval_text = FALSE,
+                                 # Gene filtering and highlighting
+                                 filter_by_fc = FALSE,
+                                 top_n = NULL,
+                                 highlight_genes = NULL,
+                                 highlight_color = "#FF6B35",
+                                 gene_categories = NULL,
+                                 # Color themes
+                                 color_theme = c("default", "viridis", "RdBu", "publication", "colorblind"),
+                                 # Enhanced annotations
+                                 annotation_row = NULL,
+                                 annotation_col_enhanced = NULL,
+                                 annotation_colors = NULL,
+                                 # Layout options
+                                 plot_layout = c("heatmap_fc", "heatmap_fc_volcano"),
                                  ...) {
+
+  # Match arguments
+  scale <- match.arg(scale)
+  color_theme <- match.arg(color_theme)
+  plot_layout <- match.arg(plot_layout)
 
   # Check required packages
   required_packages <- c("pheatmap", "grid", "gridExtra")
+  if (plot_layout == "heatmap_fc_volcano") {
+    required_packages <- c(required_packages, "ggplot2")
+  }
   for (pkg in required_packages) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
       stop("Package '", pkg, "' is required. Install with: install.packages('", pkg, "')")
@@ -506,7 +533,13 @@ plot_heatmap_with_fc <- function(expression_matrix,
     stop("Length of log2fc must match number of rows in expression_matrix")
   }
 
-  scale <- match.arg(scale)
+  # Validate p-values if provided
+  if (!is.null(pvalues) && length(pvalues) != nrow(expression_matrix)) {
+    stop("Length of pvalues must match number of rows in expression_matrix")
+  }
+  if (!is.null(padj) && length(padj) != nrow(expression_matrix)) {
+    stop("Length of padj must match number of rows in expression_matrix")
+  }
 
   # Set gene labels
   if (is.null(gene_labels)) {
@@ -516,25 +549,102 @@ plot_heatmap_with_fc <- function(expression_matrix,
     }
   }
 
+  # Store original indices for tracking
+  original_indices <- seq_len(nrow(expression_matrix))
+
+  # Gene filtering
+  if (filter_by_fc || !is.null(top_n)) {
+    keep_genes <- rep(TRUE, nrow(expression_matrix))
+
+    # Filter by FC threshold
+    if (filter_by_fc) {
+      keep_genes <- abs(log2fc) > fc_threshold
+    }
+
+    # Select top N up/down regulated genes
+    if (!is.null(top_n)) {
+      # Sort by absolute log2FC
+      fc_order <- order(abs(log2fc), decreasing = TRUE)
+      top_indices <- fc_order[1:min(top_n, length(fc_order))]
+      keep_genes <- original_indices %in% top_indices
+    }
+
+    # Apply filtering
+    expression_matrix <- expression_matrix[keep_genes, , drop = FALSE]
+    log2fc <- log2fc[keep_genes]
+    gene_labels <- gene_labels[keep_genes]
+    original_indices <- original_indices[keep_genes]
+
+    if (!is.null(pvalues)) pvalues <- pvalues[keep_genes]
+    if (!is.null(padj)) padj <- padj[keep_genes]
+    if (!is.null(gene_categories)) gene_categories <- gene_categories[keep_genes]
+
+    message(sprintf("Filtered to %d genes (from %d total)",
+                    sum(keep_genes), length(keep_genes)))
+  }
+
   # Auto-hide row names if too many genes
   if (show_rownames && nrow(expression_matrix) > 50) {
     show_rownames <- FALSE
     message("Note: Row names hidden (>50 genes). Set show_rownames=TRUE to override.")
   }
 
-  # Default heatmap colors
+  # Apply color theme
   if (is.null(heatmap_colors)) {
-    heatmap_colors <- grDevices::colorRampPalette(c("#2166AC", "white", "#B2182B"))(100)
+    heatmap_colors <- switch(color_theme,
+      "default" = grDevices::colorRampPalette(c("#2166AC", "white", "#B2182B"))(100),
+      "viridis" = grDevices::colorRampPalette(c("#440154", "#31688E", "#35B779", "#FDE724"))(100),
+      "RdBu" = grDevices::colorRampPalette(c("#67001F", "#B2182B", "#D6604D", "#F4A582",
+                                             "#FDDBC7", "#FFFFFF", "#D1E5F0", "#92C5DE",
+                                             "#4393C3", "#2166AC", "#053061"))(100),
+      "publication" = grDevices::colorRampPalette(c("black", "grey90", "white"))(100),
+      "colorblind" = grDevices::colorRampPalette(c("#0173B2", "white", "#DE8F05"))(100)
+    )
   }
 
-  # Prepare column annotation if sample groups provided
+  # Prepare column annotations
   annotation_col <- NULL
-  if (!is.null(sample_groups)) {
+  if (!is.null(annotation_col_enhanced)) {
+    # Use enhanced annotations if provided
+    annotation_col <- annotation_col_enhanced
+  } else if (!is.null(sample_groups)) {
+    # Fall back to simple sample groups
     if (length(sample_groups) != ncol(expression_matrix)) {
       warning("Length of sample_groups doesn't match number of columns. Ignoring sample_groups.")
     } else {
       annotation_col <- data.frame(Group = sample_groups)
       rownames(annotation_col) <- colnames(expression_matrix)
+    }
+  }
+
+  # Prepare row annotations
+  if (!is.null(annotation_row)) {
+    if (nrow(annotation_row) != nrow(expression_matrix)) {
+      warning("Row number of annotation_row doesn't match expression_matrix rows. Ignoring annotation_row.")
+      annotation_row <- NULL
+    }
+  } else if (!is.null(gene_categories)) {
+    # Create annotation from gene categories
+    annotation_row <- data.frame(Category = gene_categories)
+    rownames(annotation_row) <- gene_labels
+  }
+
+  # Add highlighted genes to row annotation
+  if (!is.null(highlight_genes)) {
+    highlight_status <- ifelse(gene_labels %in% highlight_genes, "Highlighted", "Other")
+    if (!is.null(annotation_row)) {
+      annotation_row$Highlight <- highlight_status
+    } else {
+      annotation_row <- data.frame(Highlight = highlight_status)
+      rownames(annotation_row) <- gene_labels
+    }
+
+    # Add highlight colors to annotation_colors
+    if (is.null(annotation_colors)) {
+      annotation_colors <- list()
+    }
+    if (!"Highlight" %in% names(annotation_colors)) {
+      annotation_colors$Highlight <- c("Highlighted" = highlight_color, "Other" = "white")
     }
   }
 
@@ -548,6 +658,8 @@ plot_heatmap_with_fc <- function(expression_matrix,
     show_colnames = show_colnames,
     color = heatmap_colors,
     annotation_col = annotation_col,
+    annotation_row = annotation_row,
+    annotation_colors = annotation_colors,
     main = title,
     silent = TRUE,
     ...
@@ -564,11 +676,29 @@ plot_heatmap_with_fc <- function(expression_matrix,
   log2fc_ordered <- log2fc[row_order]
   genes_ordered <- gene_labels[row_order]
 
+  # Reorder p-values if provided
+  pval_ordered <- NULL
+  padj_ordered <- NULL
+  if (!is.null(pvalues)) pval_ordered <- pvalues[row_order]
+  if (!is.null(padj)) padj_ordered <- padj[row_order]
+
+  # Determine significance level for each gene
+  sig_stars <- rep("", length(log2fc_ordered))
+  if (!is.null(padj_ordered) || !is.null(pval_ordered)) {
+    pval_to_use <- if (!is.null(padj_ordered)) padj_ordered else pval_ordered
+    sig_stars <- ifelse(pval_to_use < sig_thresholds[3], "***",
+                 ifelse(pval_to_use < sig_thresholds[2], "**",
+                 ifelse(pval_to_use < sig_thresholds[1], "*", "")))
+  }
+
   # Create fold change data frame
   fc_data <- data.frame(
     gene = factor(genes_ordered, levels = genes_ordered),
     log2fc = log2fc_ordered,
-    significant = abs(log2fc_ordered) > fc_threshold
+    significant = abs(log2fc_ordered) > fc_threshold,
+    sig_stars = sig_stars,
+    pval = pval_ordered,
+    stringsAsFactors = FALSE
   )
 
   # Create the fold change bar plot
@@ -578,6 +708,7 @@ plot_heatmap_with_fc <- function(expression_matrix,
   # Reverse the factor levels so genes appear in same order as heatmap (top to bottom)
   fc_data$gene <- factor(fc_data$gene, levels = rev(levels(fc_data$gene)))
 
+  # Build the base plot
   fc_plot <- ggplot2::ggplot(fc_data, ggplot2::aes(x = gene, y = log2fc)) +
     ggplot2::geom_hline(yintercept = 0, color = "gray40", linewidth = 0.5) +
     ggplot2::geom_hline(yintercept = c(-fc_threshold, fc_threshold),
@@ -587,14 +718,6 @@ plot_heatmap_with_fc <- function(expression_matrix,
       ggplot2::aes(fill = log2fc > 0),
       width = 0.8,
       show.legend = FALSE
-    ) +
-    ggplot2::geom_text(
-      ggplot2::aes(
-        label = sprintf("%.2f", log2fc),
-        hjust = ifelse(log2fc > 0, -0.1, 1.1)
-      ),
-      size = 3,
-      color = "black"
     ) +
     ggplot2::scale_fill_manual(values = fc_colors) +
     ggplot2::coord_flip() +
@@ -614,18 +737,111 @@ plot_heatmap_with_fc <- function(expression_matrix,
       axis.title.x = ggplot2::element_text(size = 9)
     )
 
+  # Add numeric FC values
+  fc_plot <- fc_plot +
+    ggplot2::geom_text(
+      ggplot2::aes(
+        label = sprintf("%.2f", log2fc),
+        hjust = ifelse(log2fc > 0, -0.1, 1.1)
+      ),
+      size = 3,
+      color = "black"
+    )
+
+  # Add significance stars if available
+  if (any(fc_data$sig_stars != "")) {
+    fc_plot <- fc_plot +
+      ggplot2::geom_text(
+        data = fc_data[fc_data$sig_stars != "", ],
+        ggplot2::aes(
+          label = sig_stars,
+          y = 0,
+          hjust = 0.5
+        ),
+        size = 4,
+        color = "black",
+        fontface = "bold"
+      )
+  }
+
+  # Add p-value text if requested
+  if (show_pval_text && !is.null(fc_data$pval)) {
+    fc_plot <- fc_plot +
+      ggplot2::geom_text(
+        ggplot2::aes(
+          label = ifelse(!is.na(pval), sprintf("p=%.3f", pval), ""),
+          hjust = ifelse(log2fc > 0, -0.1, 1.1),
+          y = log2fc
+        ),
+        size = 2.5,
+        color = "gray30",
+        vjust = -0.5
+      )
+  }
+
   # Convert fold change plot to grob
   fc_grob <- ggplot2::ggplotGrob(fc_plot)
+
+  # Create volcano plot if requested
+  volcano_plot <- NULL
+  volcano_grob <- NULL
+  if (plot_layout == "heatmap_fc_volcano") {
+    if (is.null(pval_ordered) && is.null(padj_ordered)) {
+      warning("Cannot create volcano plot without p-values. Falling back to heatmap_fc layout.")
+      plot_layout <- "heatmap_fc"
+    } else {
+      # Prepare volcano data
+      volcano_data <- data.frame(
+        gene = genes_ordered,
+        log2fc = log2fc_ordered,
+        neglog10p = -log10(if (!is.null(padj_ordered)) padj_ordered else pval_ordered),
+        significant = (abs(log2fc_ordered) > fc_threshold) &
+                      ((if (!is.null(padj_ordered)) padj_ordered else pval_ordered) < sig_thresholds[1]),
+        highlighted = genes_ordered %in% highlight_genes,
+        stringsAsFactors = FALSE
+      )
+
+      # Remove infinite values
+      volcano_data <- volcano_data[is.finite(volcano_data$neglog10p), ]
+
+      # Create volcano plot
+      volcano_plot <- ggplot2::ggplot(volcano_data,
+                                      ggplot2::aes(x = log2fc, y = neglog10p)) +
+        ggplot2::geom_point(ggplot2::aes(color = significant), alpha = 0.6, size = 2) +
+        ggplot2::geom_vline(xintercept = c(-fc_threshold, fc_threshold),
+                           linetype = "dashed", color = "gray50") +
+        ggplot2::geom_hline(yintercept = -log10(sig_thresholds[1]),
+                           linetype = "dashed", color = "gray50") +
+        ggplot2::scale_color_manual(values = c("FALSE" = "gray60", "TRUE" = "#D73027"),
+                                   name = "Significant") +
+        ggplot2::labs(
+          x = "log2 Fold Change",
+          y = "-log10(p-value)",
+          title = "Volcano Plot"
+        ) +
+        ggplot2::theme_minimal(base_size = 10) +
+        ggplot2::theme(
+          legend.position = "bottom",
+          plot.margin = ggplot2::margin(t = 5, r = 5, b = 5, l = 5)
+        )
+
+      # Highlight specific genes if provided
+      if (!is.null(highlight_genes) && any(volcano_data$highlighted)) {
+        volcano_plot <- volcano_plot +
+          ggplot2::geom_point(data = volcano_data[volcano_data$highlighted, ],
+                             color = highlight_color, size = 3, shape = 21,
+                             fill = highlight_color, stroke = 1.5)
+      }
+
+      volcano_grob <- ggplot2::ggplotGrob(volcano_plot)
+    }
+  }
 
   # Extract heatmap grob
   hm_grob <- hm$gtable
 
-  # Combine plots side by side with matched heights
+  # Combine plots based on layout
   grid::grid.newpage()
-
-  # Get the heatmap body height
-  hm_heights <- hm_grob$heights
-  hm_widths <- hm_grob$widths
 
   # Match the plot area heights
   # Find the panel in heatmap gtable
@@ -642,27 +858,58 @@ plot_heatmap_with_fc <- function(expression_matrix,
     }
   }
 
-  # Create layout
-  grid::pushViewport(grid::viewport(layout = grid::grid.layout(1, 2,
-                                                               widths = grid::unit(width_ratio, c("null", "null")))))
+  # Create layout based on plot_layout parameter
+  if (plot_layout == "heatmap_fc_volcano" && !is.null(volcano_grob)) {
+    # Three panel layout: heatmap, fc, volcano
+    grid::pushViewport(grid::viewport(
+      layout = grid::grid.layout(1, 3,
+        widths = grid::unit(c(4, 1, 2), c("null", "null", "null")))
+    ))
 
-  # Draw heatmap on the left
-  grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 1))
-  grid::grid.draw(hm_grob)
-  grid::popViewport()
+    # Draw heatmap on the left
+    grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 1))
+    grid::grid.draw(hm_grob)
+    grid::popViewport()
 
-  # Draw fold change plot on the right
-  grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 2))
-  grid::grid.draw(fc_grob)
-  grid::popViewport()
+    # Draw fold change plot in the middle
+    grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 2))
+    grid::grid.draw(fc_grob)
+    grid::popViewport()
+
+    # Draw volcano plot on the right
+    grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 3))
+    grid::grid.draw(volcano_grob)
+    grid::popViewport()
+  } else {
+    # Two panel layout: heatmap and fc (default)
+    grid::pushViewport(grid::viewport(
+      layout = grid::grid.layout(1, 2,
+        widths = grid::unit(width_ratio, c("null", "null")))
+    ))
+
+    # Draw heatmap on the left
+    grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 1))
+    grid::grid.draw(hm_grob)
+    grid::popViewport()
+
+    # Draw fold change plot on the right
+    grid::pushViewport(grid::viewport(layout.pos.row = 1, layout.pos.col = 2))
+    grid::grid.draw(fc_grob)
+    grid::popViewport()
+  }
 
   # Return results invisibly
-  invisible(list(
+  result <- list(
     heatmap = hm,
     fc_plot = fc_plot,
     fc_data = fc_data,
     row_order = row_order,
     expression_matrix = expression_matrix,
-    log2fc = log2fc
-  ))
+    log2fc = log2fc,
+    volcano_plot = volcano_plot,
+    pvalues = pval_ordered,
+    padj = padj_ordered
+  )
+
+  invisible(result)
 }
