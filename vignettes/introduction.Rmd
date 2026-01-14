@@ -191,6 +191,7 @@ help(package = "mestools")
 
 - **16S Primer Tools**: See `vignette("primer-analysis")`
 - **Sanger Sequencing**: See `vignette("sanger-workflow")`
+- **Consolidated documentation**: See [README.md](../README.md) (generated from README.Rmd)
 - **GitHub Repository**: https://github.com/vanhungtran/mestools
 - **Report Issues**: https://github.com/vanhungtran/mestools/issues
 
