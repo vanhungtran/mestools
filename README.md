@@ -6122,3 +6122,689 @@ dev.off()
 
 ---
 
+
+---
+
+# 🧬 Olink Proteomics Data Analysis
+
+Complete toolkit for analyzing Olink protein expression data with covariate adjustment and comprehensive regression analyses.
+
+## Overview
+
+The `mestools` package provides three main functions for Olink proteomics data analysis:
+
+1. **`adjust_olink_covariates()`** - Remove batch effects and confounding variables
+2. **`olink_regression_analysis()`** - Univariate & multivariate association testing
+3. **`plot_forest_results()`** - Visualize odds ratios and beta coefficients
+
+## Quick Start
+
+```r
+library(mestools)
+
+# 1. Adjust for batch effects and covariates
+adjusted_data <- adjust_olink_covariates(
+  count_matrix = your_protein_matrix,
+  metadata = your_metadata,
+  covariates = c("age", "sex", "batch"),
+  sample_id_col = "sample_id",
+  method = "adjusted"
+)
+
+# 2. Test associations with disease (binary outcome)
+results <- olink_regression_analysis(
+  count_matrix = adjusted_data$adjusted_matrix,
+  metadata = your_metadata,
+  outcome = "disease_status",
+  outcome_type = "binary",
+  covariates = c("age", "sex", "bmi")
+)
+
+# 3. Visualize results
+plot_forest_results(
+  results = results,
+  analysis_type = "multivariate",
+  top_n = 20
+)
+```
+
+## Features
+
+### Covariate Adjustment
+
+- ✅ **Batch effect removal** for multi-batch experiments
+- ✅ **Multiple covariate adjustment** (age, sex, BMI, etc.)
+- ✅ **Two adjustment methods**: residuals or adjusted values
+- ✅ **Log transformation** support with back-transformation
+- ✅ **Model diagnostics** (R², coefficients, sample counts)
+- ✅ **Handles missing data** automatically
+
+### Regression Analysis
+
+#### Binary Outcomes (Logistic Regression)
+- Returns **Odds Ratios with 95% CI**
+- Ideal for: case-control studies, disease associations, treatment response
+
+#### Continuous Outcomes (Linear Regression)
+- Returns **Beta Coefficients with 95% CI**
+- Ideal for: severity scores, biomarker levels, quantitative traits
+
+#### Both Include:
+- **Univariate analysis** (unadjusted, one protein at a time)
+- **Multivariate analysis** (adjusted for covariates)
+- **Multiple testing correction** (BH, Bonferroni, Holm, etc.)
+- **Auto-detection** of outcome type
+- **Comprehensive diagnostics** with p-values and sample counts
+
+---
+
+## Example Visualizations
+
+### 1. Batch Effect Removal
+
+Remove technical variation while preserving biological signal:
+
+![Batch Effect Removal](olink_examples/batch_effect_removal.png)
+
+```r
+# Adjust for batch effects
+result <- adjust_olink_covariates(
+  count_matrix = protein_data,
+  metadata = sample_metadata,
+  covariates = c("age", "sex", "batch"),
+  method = "adjusted"
+)
+
+# Visualize before/after
+plot_adjustment_results(
+  original_matrix = protein_data,
+  adjusted_matrix = result$adjusted_matrix,
+  metadata = sample_metadata,
+  covariate = "batch"
+)
+```
+
+**What it shows:**
+- Original data (red) shows clear batch-specific patterns
+- Adjusted data (blue) harmonizes distributions across batches
+- Biological variability is preserved
+
+---
+
+### 2. Covariate Variance Explained
+
+Distribution of R² values showing variance explained by covariates:
+
+![R-squared Distribution](olink_examples/covariate_r_squared.png)
+
+```r
+# Check model diagnostics
+r_squared_values <- sapply(result$model_info, function(x) x$r_squared)
+median(r_squared_values)
+```
+
+**Interpretation:**
+- Higher R² = protein strongly influenced by covariates
+- Lower R² = minimal confounding effects
+- Median R² indicates typical correction magnitude
+
+---
+
+### 3. Forest Plot - Univariate Analysis (Binary Outcome)
+
+Odds ratios from univariate logistic regression:
+
+![Univariate Forest Plot](olink_examples/forest_plot_univariate_binary.png)
+
+```r
+# Case-control association study
+results <- olink_regression_analysis(
+  count_matrix = protein_data,
+  metadata = clinical_data,
+  outcome = "disease_status",  # 0 = control, 1 = case
+  outcome_type = "binary",
+  p_adjust_method = "BH"
+)
+
+# Create forest plot
+plot_forest_results(
+  results = results,
+  analysis_type = "univariate",
+  top_n = 20,
+  show_pval = TRUE
+)
+```
+
+**Key features:**
+- Each protein analyzed independently
+- Red points = significant (p < 0.05)
+- Error bars = 95% confidence intervals
+- P-values displayed on right
+
+---
+
+### 4. Forest Plot - Multivariate Analysis (Binary Outcome)
+
+Odds ratios after adjusting for covariates:
+
+![Multivariate Forest Plot](olink_examples/forest_plot_multivariate_binary.png)
+
+```r
+# Adjusted analysis
+results <- olink_regression_analysis(
+  count_matrix = protein_data,
+  metadata = clinical_data,
+  outcome = "disease_status",
+  outcome_type = "binary",
+  covariates = c("age", "sex", "bmi"),  # Adjust for these
+  p_adjust_method = "BH"
+)
+
+plot_forest_results(results, "multivariate", top_n = 20)
+```
+
+**What changes:**
+- More conservative effect estimates
+- Some associations strengthen (true signal)
+- Others weaken (confounding removed)
+- Identifies independent associations
+
+---
+
+### 5. Volcano Plot
+
+Effect size vs. statistical significance across all proteins:
+
+![Volcano Plot](olink_examples/volcano_plot_binary.png)
+
+```r
+# Create volcano plot
+library(ggplot2)
+
+ggplot(results$univariate_results,
+       aes(x = log_OR, y = -log10(p_value))) +
+  geom_point(aes(color = p_adjusted < 0.05), size = 3) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  theme_bw()
+```
+
+**Interpretation:**
+- **X-axis**: log(OR) - distance from zero = effect magnitude
+- **Y-axis**: -log10(p-value) - height = significance
+- **Red points**: FDR < 0.05 (significant after correction)
+- **Right side**: increased in cases
+- **Left side**: decreased in cases
+
+---
+
+### 6. Univariate vs. Multivariate Comparison
+
+How covariate adjustment affects associations:
+
+![Univariate vs Multivariate](olink_examples/univariate_vs_multivariate.png)
+
+```r
+# Compare effect sizes
+comparison <- merge(
+  results$univariate_results[, c("protein", "OR")],
+  results$multivariate_results[, c("protein", "OR")],
+  by = "protein", suffixes = c("_uni", "_multi")
+)
+
+ggplot(comparison, aes(x = log2(OR_uni), y = log2(OR_multi))) +
+  geom_point(size = 3, alpha = 0.6) +
+  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  theme_bw()
+```
+
+**What it reveals:**
+- **On diagonal**: minimal change after adjustment
+- **Above diagonal**: effect strengthened (confounding masked signal)
+- **Below diagonal**: effect attenuated (confounding present)
+
+---
+
+### 7. Continuous Outcome Analysis
+
+Beta coefficients for continuous outcomes (e.g., severity scores):
+
+![Continuous Outcome Forest Plot](olink_examples/forest_plot_continuous.png)
+
+```r
+# Analyze continuous outcome
+results_cont <- olink_regression_analysis(
+  count_matrix = protein_data,
+  metadata = clinical_data,
+  outcome = "severity_score",  # Continuous variable
+  outcome_type = "continuous",
+  covariates = c("age", "sex")
+)
+
+plot_forest_results(results_cont, "univariate", top_n = 20)
+```
+
+**Interpretation:**
+- **Beta > 0**: higher protein → higher severity
+- **Beta < 0**: higher protein → lower severity
+- Error bars = 95% CI
+- P-values show significance
+
+---
+
+### 8. Top Protein Association
+
+Detailed view of the strongest association:
+
+![Top Protein Association](olink_examples/top_protein_association.png)
+
+```r
+# Get top protein
+top_protein <- results_cont$univariate_results$protein[1]
+
+# Create scatter plot
+plot_data <- data.frame(
+  expression = protein_data[top_protein, ],
+  outcome = clinical_data$severity_score
+)
+
+ggplot(plot_data, aes(x = expression, y = outcome)) +
+  geom_point(alpha = 0.6, size = 3) +
+  geom_smooth(method = "lm", se = TRUE) +
+  labs(title = paste("Association:", top_protein)) +
+  theme_bw()
+```
+
+**Shows:**
+- Each point = one sample
+- Blue line = linear regression fit
+- Gray band = 95% confidence interval
+- Clear positive/negative trend
+
+---
+
+### 9. Manhattan Plot
+
+Genome-wide style overview of all associations:
+
+![Manhattan Plot](olink_examples/manhattan_plot_continuous.png)
+
+```r
+# Create Manhattan plot
+results_cont$univariate_results$protein_index <- 
+  as.numeric(gsub("Protein_", "", results_cont$univariate_results$protein))
+
+ggplot(results_cont$univariate_results,
+       aes(x = protein_index, y = -log10(p_value))) +
+  geom_point(aes(color = p_adjusted < 0.05), size = 3) +
+  geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
+  theme_bw()
+```
+
+**Useful for:**
+- Quick overview of all proteins
+- Identifying significant signals
+- Spotting clusters of associated proteins
+- Publication-ready figures
+
+---
+
+## Complete Usage Examples
+
+### Example 1: Case-Control Study with Batch Correction
+
+```r
+# Step 1: Load data
+protein_data <- read.csv("olink_npx_data.csv", row.names = 1)
+clinical_data <- read.csv("sample_metadata.csv")
+
+# Step 2: Adjust for batch effects
+adjusted <- adjust_olink_covariates(
+  count_matrix = protein_data,
+  metadata = clinical_data,
+  covariates = c("batch", "plate", "run_date"),
+  sample_id_col = "sample_id",
+  method = "adjusted",
+  verbose = TRUE
+)
+
+# Step 3: Test disease associations
+results <- olink_regression_analysis(
+  count_matrix = adjusted$adjusted_matrix,
+  metadata = clinical_data,
+  outcome = "case_control",  # 0 = control, 1 = case
+  outcome_type = "binary",
+  covariates = c("age", "sex", "bmi", "smoking"),
+  p_adjust_method = "BH"
+)
+
+# Step 4: Filter significant proteins (FDR < 0.05)
+sig_proteins <- results$multivariate_results[
+  results$multivariate_results$p_adjusted < 0.05,
+]
+
+# Step 5: Visualize
+plot_forest_results(results, "multivariate", top_n = 30)
+
+# Step 6: Export results
+write.csv(sig_proteins, "significant_proteins.csv", row.names = FALSE)
+```
+
+---
+
+### Example 2: Severity Score Biomarker Discovery
+
+```r
+# Find proteins associated with disease severity
+results <- olink_regression_analysis(
+  count_matrix = protein_data,
+  metadata = clinical_data,
+  outcome = "severity_score",  # Continuous 0-100
+  outcome_type = "continuous",
+  covariates = c("age", "sex", "disease_duration"),
+  log_transform = TRUE,
+  conf_level = 0.95
+)
+
+# Get top positive associations (higher protein → higher severity)
+top_positive <- results$univariate_results[
+  results$univariate_results$beta > 0,
+][1:10, ]
+
+# Get top negative associations (higher protein → lower severity)
+top_negative <- results$univariate_results[
+  results$univariate_results$beta < 0,
+][1:10, ]
+
+# Compare univariate vs multivariate
+print(results$summary_stats)
+```
+
+---
+
+### Example 3: Multi-Cohort Analysis
+
+```r
+# Analyze multiple cohorts separately
+cohorts <- unique(clinical_data$cohort)
+results_list <- list()
+
+for (cohort in cohorts) {
+  # Subset data
+  samples <- clinical_data$sample_id[clinical_data$cohort == cohort]
+  cohort_data <- protein_data[, samples]
+  cohort_metadata <- clinical_data[clinical_data$cohort == cohort, ]
+  
+  # Run analysis
+  results_list[[cohort]] <- olink_regression_analysis(
+    count_matrix = cohort_data,
+    metadata = cohort_metadata,
+    outcome = "disease_status",
+    outcome_type = "binary",
+    covariates = c("age", "sex")
+  )
+}
+
+# Compare results across cohorts
+for (cohort in cohorts) {
+  cat("\n=== Cohort:", cohort, "===\n")
+  print(head(results_list[[cohort]]$univariate_results, 5))
+}
+```
+
+---
+
+## Output Structure
+
+### Covariate Adjustment Results
+
+```r
+result <- adjust_olink_covariates(...)
+
+# Access components:
+result$adjusted_matrix     # Adjusted protein expression matrix
+result$model_info          # List of model diagnostics per protein
+result$covariates_used     # Vector of covariates adjusted for
+result$samples_used        # Vector of samples included
+result$proteins_failed     # Proteins where adjustment failed
+
+# Check individual protein model:
+result$model_info[["Protein_1"]]$r_squared
+result$model_info[["Protein_1"]]$coefficients
+```
+
+### Regression Analysis Results
+
+```r
+results <- olink_regression_analysis(...)
+
+# Univariate results (data.frame)
+results$univariate_results
+#   protein    OR  OR_lower OR_upper  log_OR    SE  p_value p_adjusted n_samples
+#   Protein_1  2.5  1.8      3.5      0.916  0.17  0.0001   0.005      150
+
+# Multivariate results (data.frame)
+results$multivariate_results
+#   protein    OR  OR_lower OR_upper  log_OR    SE  p_value p_adjusted n_samples
+#   Protein_1  2.1  1.5      2.9      0.742  0.16  0.0003   0.015      148
+
+# Summary statistics
+results$summary_stats
+# $n_proteins_analyzed_univariate: 100
+# $n_significant_univariate_adj: 15
+# $n_significant_multivariate_adj: 12
+# $model_type: "logistic"
+```
+
+---
+
+## Advanced Options
+
+### Custom Confidence Levels
+
+```r
+# Use 99% confidence intervals instead of 95%
+results <- olink_regression_analysis(
+  count_matrix = data,
+  metadata = metadata,
+  outcome = "outcome",
+  conf_level = 0.99  # More conservative
+)
+```
+
+### Different Multiple Testing Corrections
+
+```r
+# Bonferroni (most conservative)
+results_bonf <- olink_regression_analysis(..., p_adjust_method = "bonferroni")
+
+# Holm step-down
+results_holm <- olink_regression_analysis(..., p_adjust_method = "holm")
+
+# Benjamini-Hochberg FDR (recommended, default)
+results_bh <- olink_regression_analysis(..., p_adjust_method = "BH")
+```
+
+### Log Transformation Options
+
+```r
+# Transform and keep log scale
+adj1 <- adjust_olink_covariates(
+  ...,
+  log_transform = TRUE,
+  return_log = TRUE
+)
+
+# Transform and back-transform to original scale
+adj2 <- adjust_olink_covariates(
+  ...,
+  log_transform = TRUE,
+  return_log = FALSE
+)
+```
+
+---
+
+## Data Format Requirements
+
+### Count Matrix Format
+
+```r
+# Protein × Sample matrix
+#               Sample_1  Sample_2  Sample_3  Sample_4
+# Protein_A        150.2     142.8     165.3     158.1
+# Protein_B         85.1      91.2      78.9      82.4
+# Protein_C        210.5     198.7     225.1     215.3
+```
+
+- Rows = Proteins
+- Columns = Samples  
+- Values = NPX values, counts, or intensity
+- Row names = Protein IDs
+- Column names = Sample IDs (must match metadata)
+
+### Metadata Format
+
+```r
+# Sample metadata data.frame
+#   sample_id  age  sex  batch  disease_status
+#   Sample_1    45    M  Batch1              0
+#   Sample_2    52    F  Batch1              1
+#   Sample_3    38    M  Batch2              0
+#   Sample_4    61    F  Batch2              1
+```
+
+- Rows = Samples
+- Must include outcome variable column
+- Must include covariate columns
+- Sample IDs must match count matrix column names
+
+---
+
+## Troubleshooting
+
+### Issue: No proteins successfully analyzed
+
+**Cause:** Insufficient complete cases after removing missing data
+
+**Solution:**
+```r
+# Check for missing data
+sum(is.na(count_matrix))
+sum(is.na(metadata$outcome))
+
+# Lower minimum sample requirement
+results <- olink_regression_analysis(..., min_samples = 5)
+```
+
+### Issue: Sample ID mismatch
+
+**Cause:** Sample IDs don't match between matrix and metadata
+
+**Solution:**
+```r
+# Check overlap
+common <- intersect(colnames(count_matrix), metadata$sample_id)
+length(common)
+
+# Verify IDs match (case-sensitive!)
+head(colnames(count_matrix))
+head(metadata$sample_id)
+```
+
+### Issue: Convergence warnings in logistic regression
+
+**Cause:** Perfect or near-perfect separation
+
+**Solution:**
+- Check for proteins with extreme values
+- Consider log transformation
+- Review sample size and covariate balance
+
+---
+
+## Complete Documentation
+
+For detailed documentation with more examples:
+
+📖 **[Complete Olink Analysis Guide](OLINK_ANALYSIS_README.md)**  
+📊 **[Visual Examples & Interpretations](olink_examples/README.md)**
+
+### Function Documentation
+
+```r
+# View detailed help
+?adjust_olink_covariates
+?olink_regression_analysis
+?plot_forest_results
+```
+
+### Example Scripts
+
+- **Generate Examples:** Run `source("generate_olink_examples.R")`
+- **Test Suite:** `tests/testthat/test-olink-*.R`
+- **Source Code:** `R/olink-*.R`
+
+---
+
+## Statistical Methods
+
+### Multiple Testing Correction
+
+All analyses apply multiple testing correction to control false discovery rate:
+
+- **BH/FDR** (default) - Benjamini-Hochberg, recommended for discovery
+- **Bonferroni** - Most conservative, family-wise error rate control
+- **Holm** - Step-down procedure, more powerful than Bonferroni
+- **None** - Raw p-values (not recommended)
+
+### Model Types
+
+**Binary Outcomes:** Logistic Regression
+- Returns: Odds Ratios (OR)
+- OR > 1 → positive association
+- OR < 1 → negative association
+- OR = 1 → no association
+
+**Continuous Outcomes:** Linear Regression
+- Returns: Beta Coefficients
+- Beta > 0 → positive association
+- Beta < 0 → negative association
+- Beta = 0 → no association
+
+### Adjustment Methods
+
+1. **Residuals** - Returns residuals from linear model
+   - Best for downstream association testing
+   - Removes mean from adjusted values
+
+2. **Adjusted Values** - Returns adjusted values with mean preserved
+   - Better for visualization
+   - Maintains original scale
+
+---
+
+## Citation
+
+If you use these functions in your research, please cite:
+
+```bibtex
+@software{mestools2026,
+  title = {mestools: Microbiome and Epidemiology Statistical Tools},
+  author = {Tran, Van Hung},
+  year = {2026},
+  url = {https://github.com/vanhungtran/mestools}
+}
+```
+
+---
+
+## Additional Resources
+
+- **GitHub Repository:** https://github.com/vanhungtran/mestools
+- **Issues & Support:** https://github.com/vanhungtran/mestools/issues
+- **Complete Examples:** See `olink_examples/` directory
+- **Test Coverage:** 35 comprehensive tests
+
+---
+
